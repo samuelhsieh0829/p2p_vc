@@ -24,9 +24,7 @@ class Channel:
         self.created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     def add_member(self, name: str, ip: str, port: int) -> None|str:
-        log.info(self.members)
         for member in self.members:
-            log.info(member)
             if name == member.name:
                 log.error(f"Member {name} already exists in the channel.")
                 return "Member already exists"

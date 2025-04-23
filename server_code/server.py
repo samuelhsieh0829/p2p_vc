@@ -76,12 +76,30 @@ def create_channel_by_get():
         channel = Channel(channel_id, name, description, author)
         channels.append({channel_id: channel})
         return redirect("/channels")
-    
-@app.route("/channel/<channel_id>/join", methods=["GET"])
-def join_channel(channel_id):
-    name = request.args.get("name")
-    ip = request.args.get("ip")
-    port = request.args.get("port")
+
+# Join channel
+# @app.route("/channel/<channel_id>/join", methods=["GET"])
+# def join_channel(channel_id):
+#     name = request.args.get("name")
+#     ip = request.args.get("ip")
+#     port = request.args.get("port")
+#     log.info(f"Joining channel {channel_id} with name {name}, ip {ip}, port {port}")
+#     if not name or not ip or not port:
+#         return "Missing parameters", 400
+#     for channel in channels:
+#         if int(channel_id) in channel:
+#             status = channel[int(channel_id)].add_member(name, ip, port)
+#             if status is None:
+#                 return redirect("/channels")
+#             else:
+#                 return status, 400
+#     return "Channel not found", 404
+
+@app.route("/api/channel/<channel_id>/join", methods=["POST"])
+def join_channel_api(channel_id):
+    name = request.json.get("name")
+    port = request.json.get("port")
+    ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
     log.info(f"Joining channel {channel_id} with name {name}, ip {ip}, port {port}")
     if not name or not ip or not port:
         return "Missing parameters", 400
@@ -89,9 +107,14 @@ def join_channel(channel_id):
         if int(channel_id) in channel:
             status = channel[int(channel_id)].add_member(name, ip, port)
             if status is None:
-                return redirect("/channels")
+                channel_members = channel[int(channel_id)].members.copy()
+                temp = []
+                for member in channel_members:
+                    if member.name != name:
+                        temp.append(member.__dict__)
+                return jsonify(temp), 200
             else:
-                return status, 400
-    return "Channel not found", 404
+                return jsonify({"status": status}), 400
+    return jsonify({"status": "Channel not found"}), 404
 
 app.run(host="0.0.0.0", port=5000, debug=True)
