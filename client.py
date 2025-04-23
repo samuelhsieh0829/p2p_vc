@@ -5,6 +5,7 @@ import sys
 import time
 import threading
 import ntplib
+import requests
 
 # Audio init
 chunk = 1024
@@ -28,10 +29,18 @@ audio_out_target_location = (IP, 5001)
 # Threading
 stop_event = threading.Event()
 
-# NTP client
-ntp_client = ntplib.NTPClient()
-ntp_server = "pool.ntp.org"
-time_offset = ntp_client.request(ntp_server).offset
+# Main server
+server_address = "192.168.1.109:5000"
+time_offset = 0
+try:
+    server_time = requests.get(f"http://{server_address}/api/time")
+    server_time = server_time.json()["time"]
+    client_time = time.time()
+    time_offset = server_time - client_time
+except requests.exceptions.RequestException as e:
+    print(f"Error connecting to server: {e}")
+    sys.exit(1)
+
 def receive_audio():
     global s
     try:
