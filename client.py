@@ -24,11 +24,14 @@ s.bind(audio_in_target_location)
 IP = input("Enter the IP address of the target: ")
 audio_out_target_location = (IP, 5001)
 
+# Threading
+stop_event = threading.Event()
+
 def receive_audio():
     global s
     try:
         print("Start receiving data")
-        while True:
+        while not stop_event.is_set():
             data, addr = s.recvfrom(8192)
 
             # Get timestamp
@@ -58,7 +61,7 @@ def send_audio_data():
     global s, audio_in
     try:
         print("Start sending data")
-        while True:
+        while not stop_event.is_set():
             audio = audio_in.read(chunk)
             # Add timestamop
             timestamp = time.time()
@@ -72,11 +75,18 @@ def send_audio_data():
         print("Stopped")
 
 if __name__ == "__main__":
+    
     sender_thread = threading.Thread(target=send_audio_data)
     receiver_thread = threading.Thread(target=receive_audio)
 
     sender_thread.start()
     receiver_thread.start()
 
-    sender_thread.join()
-    receiver_thread.join()
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
+        print("\nCtrl + C detected")
+        stop_event.set()
+    finally:
+        print("Stopped")
