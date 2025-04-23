@@ -31,12 +31,15 @@ stop_event = threading.Event()
 
 # Main server
 server_address = "192.168.1.109:5000"
+# Get time offset
 time_offset = 0
 try:
+    t0 = time.time()
     server_time = requests.get(f"http://{server_address}/api/time")
+    t1 = time.time()
+    rtt = t1 - t0
     server_time = server_time.json()["time"]
-    client_time = time.time()
-    time_offset = server_time - client_time
+    time_offset = server_time + (rtt / 2) - time.time()
 except requests.exceptions.RequestException as e:
     print(f"Error connecting to server: {e}")
     sys.exit(1)
