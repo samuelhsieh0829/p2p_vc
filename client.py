@@ -62,11 +62,11 @@ def receive_audio():
             sys.stdout.flush()
 
             # Check for latency
-            if t_delta > 0.03:
-                print(f"\nWarning: High latency detected: {t_delta*1000:.2f} ms, rebinding socket")
-                s.close()
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.bind(audio_in_target_location)
+            # if t_delta > 0.03:
+            #     print(f"\nWarning: High latency detected: {t_delta*1000:.2f} ms, rebinding socket")
+            #     s.close()
+            #     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            #     s.bind(audio_in_target_location)
     except KeyboardInterrupt:
         print("\nCtrl + C detected")
     finally:
