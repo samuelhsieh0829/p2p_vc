@@ -4,6 +4,7 @@ import struct
 import sys
 import time
 import threading
+import ntplib
 
 # Audio init
 chunk = 1024
@@ -27,6 +28,10 @@ audio_out_target_location = (IP, 5001)
 # Threading
 stop_event = threading.Event()
 
+# NTP client
+ntp_client = ntplib.NTPClient()
+ntp_server = "pool.ntp.org"
+time_offset = ntp_client.request(ntp_server).offset
 def receive_audio():
     global s
     try:
@@ -40,7 +45,7 @@ def receive_audio():
             audio_out.write(data[8:])
 
             # Output Ping
-            t_delta = time.time() - timestamp
+            t_delta = time.time() + time_offset - timestamp
             sys.stdout.write(f"\rPing: {t_delta*1000:.2f} ms")
             sys.stdout.flush()
 
