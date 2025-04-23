@@ -19,9 +19,10 @@ audio_out = output_audio.open(format=sample_format, channels=channels, rate=fs, 
 
 # Socket init
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+audio_in_target_location = ("0.0.0.0", 5001)
+s.bind(audio_in_target_location)
 IP = input("Enter the IP address of the target: ")
-audio_target_location = (IP, 5001)
-s.bind(audio_target_location)
+audio_out_target_location = (IP, 5001)
 
 def receive_audio():
     global s
@@ -45,7 +46,7 @@ def receive_audio():
                 print(f"\nWarning: High latency detected: {t_delta*1000:.2f} ms, rebinding socket")
                 s.close()
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.bind(audio_target_location)
+                s.bind(audio_in_target_location)
     except KeyboardInterrupt:
         print("\nCtrl + C detected")
     finally:
@@ -62,7 +63,7 @@ def send_audio_data():
             # Add timestamop
             timestamp = time.time()
             timestamp_bytes = struct.pack(">d", timestamp)
-            s.sendto(timestamp_bytes+audio, audio_target_location)
+            s.sendto(timestamp_bytes+audio, audio_out_target_location)
     except KeyboardInterrupt:
         print("\nCtrl + C detected")
     finally:
