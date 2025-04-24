@@ -15,8 +15,8 @@ log.info("Starting client")
 
 # Load environment variables from .env file
 load_dotenv()
-username = os.getenv("USERNAME")
-p2p_retry_time = int(os.getenv("P2P_RETRY_TIME", 1))
+username = os.getenv("SELF_USERNAME")
+p2p_retry_time = float(os.getenv("P2P_RETRY_TIME", 1))
 log.info(f"Username: {username}")
 
 # Audio init
