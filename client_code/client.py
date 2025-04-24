@@ -99,7 +99,6 @@ def receive_audio():
     #     pass
     finally:
         output_audio.terminate()
-        s.close()
         log.info("Audio receive stopped")
 
 def send_audio_data():
@@ -119,7 +118,6 @@ def send_audio_data():
     except OSError:
         pass
     finally:
-        s.close()
         input_audio.terminate()
         log.info("Stopped sending audio")
 
