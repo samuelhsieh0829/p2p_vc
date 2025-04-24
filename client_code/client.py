@@ -16,6 +16,7 @@ log.info("Starting client")
 # Load environment variables from .env file
 load_dotenv()
 username = os.getenv("USERNAME")
+p2p_retry_time = int(os.getenv("P2P_RETRY_TIME", 1))
 log.info(f"Username: {username}")
 
 # Audio init
@@ -140,7 +141,8 @@ def start_p2p(member:dict):
             log.error(f"Socket error: {e}")
             break
         finally:
-            time.sleep(1)
+            time.sleep(p2p_retry_time)
+    s.close()
 
 def fetch_channel(channel_id:int):
     try:
