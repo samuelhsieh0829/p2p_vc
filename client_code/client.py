@@ -121,6 +121,10 @@ def start_p2p(member:dict):
     location = (member["ip"], member["port"])
 
     while not stop_event.is_set():
+        if member not in local_channel_member_list:
+            log.info(f"Member {member['name']} left the channel")
+            log.info(f"Stopping P2P connection to {member['name']} ({member['ip']}:{member['port']})")
+            break
         s.sendto(send_data, location)
 
         log.info("Waiting for NAT punch response")
