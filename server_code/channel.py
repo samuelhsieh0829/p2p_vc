@@ -32,4 +32,12 @@ class Channel:
         self.members.append(member)
 
     def remove_member(self, name: str):
+        temp = self.members.copy()
         self.members = [member for member in self.members if member.name != name]
+        if len(temp) == len(self.members):
+            log.error(f"Member {name} not found in the channel.")
+            return "Member not found"
+        else:
+            log.info(f"Member {name} removed from the channel.")
+            return None
+

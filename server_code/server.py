@@ -39,6 +39,17 @@ def get_single_channel(channel_id):
             return jsonify({"channel": channel})
     return "Channel not found", 404
 
+@app.route("/api/channel/<int:channel_id>/members", methods=["GET"])
+def get_channel_members(channel_id):
+    for channel in channels:
+        if channel_id in channel:
+            members = channel[channel_id].members.copy()
+            temp = []
+            for member in members:
+                temp.append(member.__dict__)
+            return jsonify(temp), 200
+    return "Channel not found", 404
+
 # Channel index page
 @app.route("/channels", methods=["GET"])
 def list_channels():
@@ -48,9 +59,9 @@ def list_channels():
 @app.route("/api/channels/create", methods=["POST"])
 def create_channel():
     if request.method == "POST":
-        name = request.form["name"]
-        description = request.form["description"]
-        author = request.form["author"]
+        name = request.json.get["name"]
+        description = request.json.get["description"]
+        author = request.json.get["author"]
         if not name or not description or not author:
             return "Missing parameters", 400
         while True:
@@ -77,6 +88,28 @@ def create_channel_by_get():
         channels.append({channel_id: channel})
         return redirect("/channels")
 
+# Delete channel
+@app.route("/api/channels/delete/", methods=["POST"])
+def delete_channel(channel_id):
+    global channels
+    channel_id = request.json.get("channel_id")
+    if not channel_id:
+        return "Missing parameters", 400
+    for channel in channels:
+        if channel_id in channel:
+            channels.remove(channel)
+            return jsonify({"status": "ok"}), 200
+    return jsonify({"status": "Channel not found"}), 404
+
+@app.route("/channels/delete/<int:channel_id>", methods=["GET"])
+def delete_channel_by_get(channel_id):
+    global channels
+    for channel in channels:
+        if channel_id in channel:
+            channels.remove(channel)
+            return redirect("/channels")
+    return "Channel not found", 404
+
 # Join channel
 # @app.route("/channel/<channel_id>/join", methods=["GET"])
 # def join_channel(channel_id):
@@ -95,8 +128,10 @@ def create_channel_by_get():
 #                 return status, 400
 #     return "Channel not found", 404
 
+# Channel join leave API
 @app.route("/api/channel/<channel_id>/join", methods=["POST"])
 def join_channel_api(channel_id):
+    global channels
     name = request.json.get("name")
     port = request.json.get("port")
     ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
@@ -116,5 +151,23 @@ def join_channel_api(channel_id):
             else:
                 return jsonify({"status": status}), 400
     return jsonify({"status": "Channel not found"}), 404
+
+@app.route("/api/channel/<channel_id>/leave", methods=["POST"])
+def leave_channel_api(channel_id):
+    name = request.json.get("name")
+    ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+    log.info(f"{name} is leaving channel {channel_id} with ip {ip}")
+    if not name or not ip:
+        return "Missing parameters", 400
+    for channel in channels:
+        if int(channel_id) in channel:
+            status = channel[int(channel_id)].remove_member(name)
+            if status is None:
+                return jsonify({"status": "ok"}), 200
+            else:
+                return jsonify({"status": status}), 400
+        else:
+            return jsonify({"status": "Channel not found"}), 404
+            
 
 app.run(host="0.0.0.0", port=5000, debug=True)
