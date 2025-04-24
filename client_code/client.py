@@ -34,6 +34,7 @@ audio_out = output_audio.open(format=sample_format, channels=channels, rate=fs, 
 # Socket init
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.bind(("0.0.0.0", 0))
+s.settimeout(0.1)  # Set timeout for socket operations
 PORT = s.getsockname()[1]
 
 # Threading
@@ -63,9 +64,16 @@ def receive_audio():
     try:
         log.info("Start receiving data")
         while not stop_event.is_set():
-            data, addr = s.recvfrom(8192)
+            try:
+                data, addr = s.recvfrom(8192)
+            except socket.timeout:
+                continue
 
             if data == send_data:
+                s.sendto(send_data, addr)
+                log.info(f"Received NAT punch response from {addr}")
+                continue
+            if not data:
                 continue
             # Get timestamp
             timestamp_byte = data[:8]
@@ -85,8 +93,8 @@ def receive_audio():
             #     s.bind(audio_in_target_location)
     except KeyboardInterrupt:
         log.info("\nCtrl + C detected")
-    except OSError:
-        pass
+    # except OSError:
+    #     pass
     finally:
         output_audio.terminate()
         s.close()
@@ -114,10 +122,7 @@ def send_audio_data():
         log.info("Stopped sending audio")
 
 def start_p2p(member:dict):
-    global connecting_list
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind(("0.0.0.0", 0))
-    s.setblocking(False)
+    global connecting_list, s
     log.info(f"Starting P2P connection to {member['name']} ({member['ip']}:{member['port']})")
     location = (member["ip"], member["port"])
 
@@ -133,10 +138,9 @@ def start_p2p(member:dict):
             data, addr = s.recvfrom(1024)
             if data == send_data:
                 log.info(f"{addr} NAT punch successful")
-                connecting_list.append(member)
+                if member not in connecting_list:
+                    connecting_list.append(member)
                 break
-        except BlockingIOError:
-            log.info("No response yet, waiting...")
         except socket.error as e:
             log.error(f"Socket error: {e}")
             break
