@@ -8,6 +8,8 @@ import requests
 from logger import setup_logger, INFO
 from dotenv import load_dotenv
 import os
+import numpy as np
+from collections import defaultdict
 
 # Setup logger
 log = setup_logger(__name__, INFO)
@@ -59,13 +61,27 @@ local_channel_member_list:list[dict] = [] # Temp list of members in the channel 
 connecting_list:list[dict] = [] # List of P2P connections user data
 send_data = b"hello"
 
+def mix_audio(audio_chunks):
+    if not audio_chunks:
+        return b""
+    arrays = [np.frombuffer(chunk, dtype=np.int16) for chunk in audio_chunks]
+    mixed = np.sum(arrays, axis=0)
+    mixed = np.clip(mixed, -32768, 32767)  # Prevent overflow
+    return mixed.astype(np.int16).tobytes()
+
 def receive_audio():
     global s
+
+    buffer_window = 0.02  # seconds (adjust for latency/quality tradeoff)
+    peer_buffers = defaultdict(list)
+
     try:
         log.info("Start receiving data")
         while not stop_event.is_set():
+            now = time.time()
+
             try:
-                data, addr = s.recvfrom(8192)
+                data, addr = s.recvfrom(32768)
             except socket.timeout:
                 continue
 
@@ -80,7 +96,20 @@ def receive_audio():
             # Get timestamp
             timestamp_byte = data[:8]
             timestamp = struct.unpack(">d", timestamp_byte)[0]
-            audio_out.write(data[8:])
+            audio_data = data[8:]
+
+            # Save by peer address
+            peer_buffers[addr].append(audio_data)
+
+            # Every 50ms (or so), mix and play
+            if now - last_playback >= buffer_window:
+                mixed_audio = mix_audio([chunk for chunks in peer_buffers.values() for chunk in chunks])
+                if mixed_audio:
+                    audio_out.write(mixed_audio)
+                peer_buffers.clear()
+                last_playback = now
+
+            # audio_out.write(data[8:])
 
             # Output Ping
             t_delta = time.time() + time_offset - timestamp
