@@ -3,3 +3,8 @@ __pycache__
 test_*.py
 *.pyc
 out
+dist
+build
+*.spec
+output
+*.rar

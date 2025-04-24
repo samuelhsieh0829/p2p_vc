@@ -166,8 +166,8 @@ def leave_channel_api(channel_id):
                 return jsonify({"status": "ok"}), 200
             else:
                 return jsonify({"status": status}), 400
-        else:
-            return jsonify({"status": "Channel not found"}), 404
+    
+    return jsonify({"status": "Channel not found"}), 404
             
 
 app.run(host="0.0.0.0", port=5000, debug=True)

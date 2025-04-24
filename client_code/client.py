@@ -15,7 +15,7 @@ log.info("Starting client")
 
 # Load environment variables from .env file
 load_dotenv()
-username = os.getenv("SELF_USERNAME")
+username = os.getenv("SELF_USERNAME") or os.getenv("USERNAME")
 p2p_retry_time = float(os.getenv("P2P_RETRY_TIME", 1))
 log.info(f"Username: {username}")
 
@@ -133,8 +133,6 @@ def start_p2p(member:dict):
             break
 
         s.sendto(send_data, location)
-        log.info("Waiting for NAT punch response")
-
         try:
             data, addr = s.recvfrom(1024)
             if data == send_data:
@@ -216,11 +214,10 @@ def join_channel(channel_id:int):
     return resp
 
 def leave_channel(channel_id:int):
-    try:
-        response = requests.post(f"http://{server_address}/api/channel/{channel_id}/leave", json={"name": username})
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        log.error(f"Error connecting to server: {e}")
+    response = requests.post(f"http://{server_address}/api/channel/{channel_id}/leave", json={"name": username})
+    if response.status_code != 200:
+        log.error(f"Error leaving channel: {response.status_code} {response.json()}")
+
         return None
     resp = response.json()
     return resp
