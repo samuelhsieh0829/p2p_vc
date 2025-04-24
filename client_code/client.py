@@ -172,6 +172,8 @@ def start_p2p(member:dict):
                 break
         except socket.timeout:
             pass
+        except OSError:
+            log.warning("Received wrong packet")
         finally:
             time.sleep(p2p_retry_time)
 
