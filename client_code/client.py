@@ -73,7 +73,9 @@ def receive_audio():
                 s.sendto(send_data, addr)
                 log.info(f"Received NAT punch response from {addr}")
                 continue
-            if not data:
+
+            if len(data) < 8:
+                log.warning("Received data is too short")
                 continue
             # Get timestamp
             timestamp_byte = data[:8]
@@ -131,9 +133,10 @@ def start_p2p(member:dict):
             log.info(f"Member {member['name']} left the channel")
             log.info(f"Stopping P2P connection to {member['name']} ({member['ip']}:{member['port']})")
             break
-        s.sendto(send_data, location)
 
+        s.sendto(send_data, location)
         log.info("Waiting for NAT punch response")
+
         try:
             data, addr = s.recvfrom(1024)
             if data == send_data:
@@ -141,12 +144,10 @@ def start_p2p(member:dict):
                 if member not in connecting_list:
                     connecting_list.append(member)
                 break
-        except socket.error as e:
-            log.error(f"Socket error: {e}")
-            break
+        except socket.timeout:
+            pass
         finally:
             time.sleep(p2p_retry_time)
-    s.close()
 
 def fetch_channel(channel_id:int):
     try:
