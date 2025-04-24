@@ -39,7 +39,7 @@ PORT = s.getsockname()[1]
 stop_event = threading.Event()
 
 # Main server
-server_address = "192.168.1.109:5000"
+server_address = os.getenv("SERVER_ADDRESS")
 # Get time offset
 time_offset = 0
 try:
