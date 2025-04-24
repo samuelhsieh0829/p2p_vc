@@ -77,6 +77,7 @@ def receive_audio():
 
     try:
         log.info("Start receiving data")
+        last_playback = time.time()
         while not stop_event.is_set():
             now = time.time()
 
