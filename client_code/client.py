@@ -156,8 +156,6 @@ def send_audio_data():
                 s.sendto(timestamp_bytes+audio, audio_out_target_location)
     except KeyboardInterrupt:
         log.info("\nCtrl + C detected")
-    except OSError:
-        pass
     finally:
         input_audio.terminate()
         log.info("Stopped sending audio")
@@ -180,11 +178,11 @@ def start_p2p(member:dict):
                 log.info(f"{addr} NAT punch successful")
                 if member not in connecting_list:
                     connecting_list.append(member)
-                break
+                return
         except socket.timeout:
             pass
         except OSError:
-            log.warning("Received wrong packet")
+            log.warning("Received wrong packet while P2P")
         finally:
             time.sleep(p2p_retry_time)
 
