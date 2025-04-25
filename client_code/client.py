@@ -63,12 +63,17 @@ connecting_list:list[dict] = [] # List of P2P connections user data
 send_data = b"hello"
 
 def mix_audio(audio_chunks):
-    if not audio_chunks:
-        return b""
-    arrays = [np.frombuffer(chunk, dtype=np.int16) for chunk in audio_chunks]
-    mixed = np.sum(arrays, axis=0)
-    mixed = np.clip(mixed, -32768, 32767)  # Prevent overflow
-    return mixed.astype(np.int16).tobytes()
+    arrays = []
+    for chunk in audio_chunks:
+        if len(chunk) % 2 != 0:
+            continue  # Skip malformed chunks
+        arrays.append(np.frombuffer(chunk, dtype=np.int16))
+    
+    if not arrays:
+        return b"\x00" * 2048  # Return silence if nothing to mix
+    
+    mixed = np.mean(arrays, axis=0).astype(np.int16)
+    return mixed.tobytes()
 
 def receive_audio():
     global s
@@ -259,10 +264,10 @@ def join_channel(channel_id:int):
                 if data == send_data:
                     log.info(f"Successfully joined channel {channel_id} as {username}")
                     s.settimeout(0.1)  # Reset timeout for socket operations
-                    break
+                    return True
                 else:
                     log.error(f"Join channel failed, received: {data.decode()}")
-                    return
+                    return False
             except socket.timeout:
                 log.warning("No response from server, retrying...")
                 continue
@@ -304,6 +309,9 @@ def main(channel_id:int=None):
             return
     
     temp = join_channel(channel_id)
+    if not temp:
+        log.error("Failed to join channel")
+        return
 
     channel_data = fetch_channel(channel_id)
     if channel_data is None:

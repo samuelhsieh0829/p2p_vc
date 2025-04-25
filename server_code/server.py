@@ -166,9 +166,13 @@ def join_channel_api(channel_id):
     # return jsonify({"status": "Channel not found"}), 404
 
 def nat_listener():
-    while not running.is_set():
-        try:
-            data, addr = udp_socket.recvfrom(1024)
+    
+    try:
+        while not running.is_set():
+            try:
+                data, addr = udp_socket.recvfrom(1024)
+            except socket.timeout:
+                continue
             log.info(f"Received Join request from {addr} with data: {data}")
             header = data[:8]
             channel_id, username_length = struct.unpack(">II", header)
@@ -179,29 +183,20 @@ def nat_listener():
                 if int(channel_id) in channel:
                     status = channel[int(channel_id)].add_member(name, ip, port)
                     if status is None:
-                        channel_members = channel[int(channel_id)].members.copy()
-                        temp = []
-                        for member in channel_members:
-                            if member.name != name:
-                                temp.append(member.__dict__)
                         udp_socket.sendto(b"hello", addr)
+                        break
                     else:
                         log.error(f"Failed to add member {name} to channel {channel_id}: {status}")
                         udp_socket.sendto(b"Failed to add member", addr)
                         break
             udp_socket.sendto(b"Channel not found", addr)
-        except socket.timeout:
-            pass
-        except KeyboardInterrupt:
-            print("\nCtrl + C detected")
-            break
-        except:
-            log.exception("Error in NAT listener")
-            break
-        finally:
-            udp_socket.close()
-            log.info("NAT listener stopped")
-            break
+    except KeyboardInterrupt:
+        print("\nCtrl + C detected")
+    except:
+        log.exception("Error in NAT listener")
+    finally:
+        udp_socket.close()
+        log.info("NAT listener stopped")
 
 @app.route("/api/channel/<channel_id>/leave", methods=["POST"])
 def leave_channel_api(channel_id):
@@ -229,8 +224,6 @@ if __name__ == "__main__":
         
         # Start the Flask server
         app.run(host="0.0.0.0", port=80, debug=True)
-    except KeyboardInterrupt:
-        print("\nCtrl + C detected")
     finally:
         running.set()
         nat_thread.join()
