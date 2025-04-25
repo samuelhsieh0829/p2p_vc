@@ -173,6 +173,9 @@ def nat_listener():
                 data, addr = udp_socket.recvfrom(1024)
             except socket.timeout:
                 continue
+            except OSError:
+                log.error("Socket error, exiting NAT listener")
+                break
             log.info(f"Received Join request from {addr} with data: {data}")
             header = data[:8]
             channel_id, username_length = struct.unpack(">II", header)

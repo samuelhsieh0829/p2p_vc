@@ -142,7 +142,10 @@ def send_audio_data():
     try:
         log.info("Start sending data")
         while not stop_event.is_set():
-            audio = audio_in.read(chunk)
+            try:
+                audio = audio_in.read(chunk)
+            except OSError:
+                continue
             # Add timestamop
             for member in connecting_list:
                 if member["name"] == username:
