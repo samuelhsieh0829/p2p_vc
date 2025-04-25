@@ -3,10 +3,18 @@ from channel import Channel
 import time
 import random
 from logger import setup_logger, INFO
+import threading
+import socket
+import struct
 
 log = setup_logger(__name__, INFO)
 
 app = Flask(__name__)
+
+udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+udp_socket.bind(("0.0.0.0", 0))
+udp_socket_port = udp_socket.getsockname()[1]
+log.info(f"Join channel UDP listener started on port {udp_socket_port}")
 
 channels:list[dict[int, Channel]] = []
 
@@ -131,26 +139,69 @@ def delete_channel_by_get(channel_id):
 # Channel join leave API
 @app.route("/api/channel/<channel_id>/join", methods=["POST"])
 def join_channel_api(channel_id):
-    global channels
-    name = request.json.get("name")
-    port = request.json.get("port")
-    ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
-    log.info(f"Joining channel {channel_id} with name {name}, ip {ip}, port {port}")
-    if not name or not ip or not port:
-        return "Missing parameters", 400
     for channel in channels:
         if int(channel_id) in channel:
-            status = channel[int(channel_id)].add_member(name, ip, port)
-            if status is None:
-                channel_members = channel[int(channel_id)].members.copy()
-                temp = []
-                for member in channel_members:
-                    if member.name != name:
-                        temp.append(member.__dict__)
-                return jsonify(temp), 200
-            else:
-                return jsonify({"status": status}), 400
+            # Send the UDP port back to the client
+            return jsonify({"port": udp_socket_port}), 200
     return jsonify({"status": "Channel not found"}), 404
+    # global channels
+    # name = request.json.get("name")
+    # port = request.json.get("port")
+    # ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+    # log.info(f"Joining channel {channel_id} with name {name}, ip {ip}, port {port}")
+    # if not name or not ip or not port:
+    #     return "Missing parameters", 400
+    # for channel in channels:
+    #     if int(channel_id) in channel:
+    #         status = channel[int(channel_id)].add_member(name, ip, port)
+    #         if status is None:
+    #             channel_members = channel[int(channel_id)].members.copy()
+    #             temp = []
+    #             for member in channel_members:
+    #                 if member.name != name:
+    #                     temp.append(member.__dict__)
+    #             return jsonify(temp), 200
+    #         else:
+    #             return jsonify({"status": status}), 400
+    # return jsonify({"status": "Channel not found"}), 404
+
+def nat_listener():
+    while not running.is_set():
+        try:
+            data, addr = udp_socket.recvfrom(1024)
+            log.info(f"Received Join request from {addr} with data: {data}")
+            header = data[:8]
+            channel_id, username_length = struct.unpack(">II", header)
+            name = data[8:8+username_length].decode('utf-8')
+            ip, port = addr
+            log.info(f"Received Join request from {name} for channel {channel_id} with IP {ip} and port {port}")
+            for channel in channels:
+                if int(channel_id) in channel:
+                    status = channel[int(channel_id)].add_member(name, ip, port)
+                    if status is None:
+                        channel_members = channel[int(channel_id)].members.copy()
+                        temp = []
+                        for member in channel_members:
+                            if member.name != name:
+                                temp.append(member.__dict__)
+                        udp_socket.sendto(b"hello", addr)
+                    else:
+                        log.error(f"Failed to add member {name} to channel {channel_id}: {status}")
+                        udp_socket.sendto(b"Failed to add member", addr)
+                        break
+            udp_socket.sendto(b"Channel not found", addr)
+        except socket.timeout:
+            pass
+        except KeyboardInterrupt:
+            print("\nCtrl + C detected")
+            break
+        except:
+            log.exception("Error in NAT listener")
+            break
+        finally:
+            udp_socket.close()
+            log.info("NAT listener stopped")
+            break
 
 @app.route("/api/channel/<channel_id>/leave", methods=["POST"])
 def leave_channel_api(channel_id):
@@ -169,5 +220,17 @@ def leave_channel_api(channel_id):
     
     return jsonify({"status": "Channel not found"}), 404
             
-
-app.run(host="0.0.0.0", port=5000, debug=True)
+if __name__ == "__main__":
+    try:
+        running = threading.Event()
+        # Start the NAT listener in a separate thread
+        nat_thread = threading.Thread(target=nat_listener, daemon=True)
+        nat_thread.start()
+        
+        # Start the Flask server
+        app.run(host="0.0.0.0", port=80, debug=True)
+    except KeyboardInterrupt:
+        print("\nCtrl + C detected")
+    finally:
+        running.set()
+        nat_thread.join()
