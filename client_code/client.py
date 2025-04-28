@@ -62,18 +62,29 @@ local_channel_member_list:list[dict] = [] # Temp list of members in the channel 
 connecting_list:list[dict] = [] # List of P2P connections user data
 send_data = b"hello"
 
-def mix_audio(audio_chunks):
+import numpy as np
+
+def mix_audio(audio_chunks: list[bytes]) -> bytes:
+    if not audio_chunks:
+        return b''
+
+    # 先把所有 bytes 轉成 float32，避免加總時溢位
     arrays = []
     for chunk in audio_chunks:
-        if len(chunk) % 2 != 0:
-            continue  # Skip malformed chunks
-        arrays.append(np.frombuffer(chunk, dtype=np.int16))
-    
-    if not arrays:
-        return b"\x00" * 2048  # Return silence if nothing to mix
-    
-    mixed = np.mean(arrays, axis=0).astype(np.int16)
-    return mixed.tobytes()
+        arr = np.frombuffer(chunk, dtype=np.int16).astype(np.float32)
+        arrays.append(arr)
+
+    # 把所有人的聲音加在一起
+    mixed = np.sum(arrays, axis=0)
+
+    # 防止超出範圍 (int16範圍是 -32768 ~ 32767)
+    mixed = np.mean(arrays, axis=0)
+    mixed = np.clip(mixed, -32768, 32767)
+
+
+    # 最後轉回 int16
+    return mixed.astype(np.int16).tobytes()
+
 
 def receive_audio():
     global s
