@@ -107,6 +107,7 @@ def receive_audio():
                 continue
 
             if data == send_data:
+                s.sendto(send_data, addr)
                 log.info(f"Received NAT punch response from {addr}")
                 continue
 
