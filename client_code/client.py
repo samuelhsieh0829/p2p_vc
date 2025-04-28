@@ -68,21 +68,24 @@ def mix_audio(audio_chunks: list[bytes]) -> bytes:
     if not audio_chunks:
         return b''
 
-    # 先把所有 bytes 轉成 float32，避免加總時溢位
     arrays = []
     for chunk in audio_chunks:
+        # 確保 chunk 不是空的，而且大小是2的倍數
+        if not chunk or len(chunk) % 2 != 0:
+            continue
         arr = np.frombuffer(chunk, dtype=np.int16).astype(np.float32)
         arrays.append(arr)
 
-    # 把所有人的聲音加在一起
+    if not arrays:
+        return b''
+
+    # 保護：強制對齊成相同最小長度，防止 np.sum 出錯
+    min_len = min(len(arr) for arr in arrays)
+    arrays = [arr[:min_len] for arr in arrays]
+
     mixed = np.sum(arrays, axis=0)
+    mixed = np.clip(mixed, -32768, 32767)  # 防止爆音
 
-    # 防止超出範圍 (int16範圍是 -32768 ~ 32767)
-    mixed = np.mean(arrays, axis=0)
-    mixed = np.clip(mixed, -32768, 32767)
-
-
-    # 最後轉回 int16
     return mixed.astype(np.int16).tobytes()
 
 
@@ -104,7 +107,6 @@ def receive_audio():
                 continue
 
             if data == send_data:
-                s.sendto(send_data, addr)
                 log.info(f"Received NAT punch response from {addr}")
                 continue
 
