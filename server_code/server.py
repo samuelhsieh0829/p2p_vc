@@ -13,6 +13,7 @@ app = Flask(__name__)
 
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 udp_socket.bind(("0.0.0.0", 0))
+udp_socket.settimeout(2)  # Set a timeout for the socket to avoid blocking
 udp_socket_port = udp_socket.getsockname()[1]
 log.info(f"Join channel UDP listener started on port {udp_socket_port}")
 
@@ -166,7 +167,6 @@ def join_channel_api(channel_id):
     # return jsonify({"status": "Channel not found"}), 404
 
 def nat_listener():
-    
     try:
         while not running.is_set():
             try:
