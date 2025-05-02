@@ -61,6 +61,7 @@ except requests.exceptions.RequestException as e:
 local_channel_member_list:list[dict] = [] # Temp list of members in the channel (to check if server side list updated)
 connecting_list:list[dict] = [] # List of P2P connections user data
 send_data = b"hello"
+confirm_data = b"confirm"
 
 import numpy as np
 
@@ -188,10 +189,12 @@ def start_p2p(member:dict):
         s.sendto(send_data, location)
         try:
             data, addr = s.recvfrom(1024)
-            if data == send_data:
+            if data == send_data or data == confirm_data:
                 log.info(f"{addr} NAT punch successful")
                 if member not in connecting_list:
                     connecting_list.append(member)
+                for i in range(10):
+                    s.sendto(confirm_data, location)
                 return
         except socket.timeout:
             pass
