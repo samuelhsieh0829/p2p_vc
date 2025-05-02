@@ -52,8 +52,8 @@ try:
     server_time = requests.get(f"http://{server_address}:{server_http_port}/api/time")
     t1 = time.time()
     rtt = t1 - t0
-    server_time = server_time.json()["time"]
-    time_offset = server_time + (rtt / 2) - time.time()
+    t_server = float(server_time.json()["time"])
+    time_offset = t_server + (rtt / 2) - t1
 except requests.exceptions.RequestException as e:
     log.critical(f"Error connecting to server: {e}")
     sys.exit(1)
@@ -133,7 +133,7 @@ def receive_audio():
             # audio_out.write(data[8:])
 
             # Output Ping
-            t_delta = time.time() + time_offset - timestamp
+            t_delta = (time.time() + time_offset) - timestamp
             sys.stdout.write(f"\rPing: {t_delta*1000:.2f} ms")
             sys.stdout.flush()
 
@@ -165,7 +165,7 @@ def send_audio_data():
                 if member["name"] == username:
                     continue
                 audio_out_target_location = (member["ip"], member["port"])
-                timestamp = time.time()
+                timestamp = time.time() + time_offset
                 timestamp_bytes = struct.pack(">d", timestamp)
                 s.sendto(timestamp_bytes+audio, audio_out_target_location)
     except KeyboardInterrupt:
