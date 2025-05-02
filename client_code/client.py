@@ -329,6 +329,7 @@ def main(channel_id:int=None):
     temp = join_channel(channel_id)
     if not temp:
         log.error("Failed to join channel")
+        temp = leave_channel(channel_id)
         return
 
     channel_data = fetch_channel(channel_id)
