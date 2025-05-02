@@ -110,6 +110,11 @@ def receive_audio():
             if data == send_data:
                 s.sendto(send_data, addr)
                 log.info(f"Received NAT punch response from {addr}")
+                s.sendto(confirm_data, addr)
+                continue
+            
+            if data == confirm_data:
+                log.info(f"Received NAT punch confirmation from {addr}")
                 continue
 
             if len(data) < 8:
