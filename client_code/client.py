@@ -312,6 +312,8 @@ def update_member(channel_id:int):
                                 log.error(f"Error sending LAN IP: {resp.status_code} {resp.json()}")
                                 continue
                             log.info(f"LAN IP sent: {resp.json()}")
+
+                            # Check if the member in the same LAN already POST their IP
                             for lan_member in resp.json():
                                 if lan_member["name"] == member["name"]:
                                     log.info(f"New member: {lan_member['name']} ({lan_member['lan_ip']}:{lan_member['port']})")
@@ -325,6 +327,8 @@ def update_member(channel_id:int):
                                     new_p2p_thread = threading.Thread(target=start_p2p, args=(member_info,))
                                     new_p2p_thread.start()
                                     found = True
+
+                            # Wait for the member to POST their IP
                             count = 0
                             while not found:
                                 count += 1
@@ -362,7 +366,7 @@ def update_member(channel_id:int):
                             new_p2p_thread = threading.Thread(target=start_p2p, args=(member,))
                             new_p2p_thread.start()
             # 成員減少
-            else:
+            elif len(members) < len(local_channel_member_list):
                 for member in local_channel_member_list.copy():
                     if member not in members:
                         if member["name"] == username:
@@ -373,6 +377,8 @@ def update_member(channel_id:int):
                             if conn["ip"] == member["ip"] and conn["port"] == member["port"]:
                                 connecting_list.remove(conn)
                                 log.info(f"Removed connection to {member['name']}")
+            else:
+                pass # 之後再說 幹
             log.info(f"Updated member list: {local_channel_member_list}")
 
 def join_channel(channel_id:int):

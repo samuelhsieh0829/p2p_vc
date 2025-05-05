@@ -203,6 +203,14 @@ def leave_channel_api(channel_id):
         if int(channel_id) in channel:
             status = channel[int(channel_id)].remove_member(name)
             if status is None:
+                global channels_lan
+                # Remove the member from channels_lan if they exist there
+                for channel_lan in channels_lan:
+                    if int(channel_id) in channel_lan:
+                        for member in channel_lan[int(channel_id)]:
+                            if member.name == name:
+                                channel_lan[int(channel_id)].remove(member)
+                                break
                 return jsonify({"status": "ok"}), 200
             else:
                 return jsonify({"status": status}), 400
