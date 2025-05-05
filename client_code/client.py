@@ -300,6 +300,7 @@ def update_member(channel_id:int):
                         log.info(f"New member: {member['name']}")
 
                         # Check if the member is in the same LAN
+                        found = False
                         if is_same_lan(member["ip"], self_ip) and (member["name"] != username):
                             log.info(f"Same LAN: {member['name']} ({member['ip']}:{member['port']})")
                             resp = requests.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
@@ -307,7 +308,6 @@ def update_member(channel_id:int):
                                 log.error(f"Error sending LAN IP: {resp.status_code} {resp.json()}")
                                 continue
                             log.info(f"LAN IP sent: {resp.json()}")
-                            found = False
                             count = 0
                             while not found:
                                 count += 1
