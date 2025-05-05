@@ -296,13 +296,11 @@ def update_member(channel_id:int):
             if len(members) > len(local_channel_member_list):
                 for member in members:
                     if member not in local_channel_member_list:
-                        if member["name"] == username:
-                            continue
 
                         log.info(f"New member: {member['name']}")
 
                         # Check if the member is in the same LAN
-                        if is_same_lan(member["ip"], self_ip):
+                        if is_same_lan(member["ip"], self_ip) and (member["name"] != username):
                             log.info(f"Same LAN: {member['name']} ({member['ip']}:{member['port']})")
                             resp = requests.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
                             if resp.status_code != 200:
@@ -338,7 +336,9 @@ def update_member(channel_id:int):
                                 time.sleep(1)
                         else:            
                             local_channel_member_list.append(member)
-                            
+                            if member["name"] == username:
+                                continue
+
                             s.sendto(send_data, (member["ip"], member["port"]))
                             new_p2p_thread = threading.Thread(target=start_p2p, args=(member,))
                             new_p2p_thread.start()
