@@ -61,12 +61,13 @@ stop_event = threading.Event()
 # Main server
 server_address = os.getenv("SERVER_ADDRESS")
 server_http_port = int(os.getenv("SERVER_HTTP_PORT", 80))
+session = requests.Session()
 
 # Get time offset
 time_offset = 0
 try:
     t0 = time.time()
-    server_time = requests.get(f"http://{server_address}:{server_http_port}/api/time")
+    server_time = session.get(f"http://{server_address}:{server_http_port}/api/time")
     t1 = time.time()
     rtt = t1 - t0
     t_server = float(server_time.json()["time"])
@@ -244,7 +245,7 @@ def start_p2p(member:dict):
 
 def fetch_channel(channel_id:int):
     try:
-        response = requests.get(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}")
+        response = session.get(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}")
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         log.error(f"Error connecting to server: {e}")
@@ -255,7 +256,7 @@ def fetch_channel(channel_id:int):
 
 def fetch_channel_user_list(channel_id:int):
     try:
-        response = requests.get(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/members")
+        response = session.get(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/members")
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         log.error(f"Error connecting to server: {e}")
@@ -303,7 +304,7 @@ def update_member(channel_id:int):
                         found = False
                         if is_same_lan(member["ip"], self_ip) and (member["name"] != username):
                             log.info(f"Same LAN: {member['name']} ({member['ip']}:{member['port']})")
-                            resp = requests.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
+                            resp = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
                             if resp.status_code != 200:
                                 log.error(f"Error sending LAN IP: {resp.status_code} {resp.json()}")
                                 continue
@@ -311,9 +312,9 @@ def update_member(channel_id:int):
                             count = 0
                             while not found:
                                 count += 1
-                                resp2 = requests.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
+                                resp2 = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
                                 if resp2.json() == resp.json():
-                                    continue
+                                    pass
                                 else:
                                     for lan_member in resp2.json()[channel_id]:
                                         if lan_member["name"] == member["name"]:
@@ -357,7 +358,7 @@ def update_member(channel_id:int):
             log.info(f"Updated member list: {local_channel_member_list}")
 
 def join_channel(channel_id:int):
-    response = requests.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/join")
+    response = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/join")
     if response.status_code != 200:
         log.error(f"Error joining channel: {response.status_code} {response.json()}")
         return None
@@ -394,7 +395,7 @@ def join_channel(channel_id:int):
     #     #######################
     #     #之後試試看改用socket請求
     #     #######################
-    #     response = requests.post(f"http://{server_address}/api/channel/{channel_id}/join", json={"name": username, "port": PORT})
+    #     response = session.post(f"http://{server_address}/api/channel/{channel_id}/join", json={"name": username, "port": PORT})
     #     response.raise_for_status()
     # except requests.exceptions.RequestException as e:
     #     log.error(f"Error connecting to server: {e}")
@@ -403,7 +404,7 @@ def join_channel(channel_id:int):
     # return resp
 
 def leave_channel(channel_id:int):
-    response = requests.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/leave", json={"name": username})
+    response = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/leave", json={"name": username})
     if response.status_code != 200:
         log.error(f"Error leaving channel: {response.status_code} {response.json()}")
 
