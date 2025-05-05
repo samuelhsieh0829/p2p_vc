@@ -365,6 +365,7 @@ def update_member(channel_id:int):
                             s.sendto(send_data, (member["ip"], member["port"]))
                             new_p2p_thread = threading.Thread(target=start_p2p, args=(member,))
                             new_p2p_thread.start()
+                log.info(f"Updated member list: {local_channel_member_list}")
             # 成員減少
             elif len(members) < len(local_channel_member_list):
                 for member in local_channel_member_list.copy():
@@ -377,9 +378,9 @@ def update_member(channel_id:int):
                             if conn["ip"] == member["ip"] and conn["port"] == member["port"]:
                                 connecting_list.remove(conn)
                                 log.info(f"Removed connection to {member['name']}")
+                log.info(f"Updated member list: {local_channel_member_list}")
             else:
                 pass # 之後再說 幹
-            log.info(f"Updated member list: {local_channel_member_list}")
 
 def join_channel(channel_id:int):
     response = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/join")
