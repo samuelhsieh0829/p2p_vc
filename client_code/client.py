@@ -334,7 +334,7 @@ def update_member(channel_id:int):
                                     log.error("LAN IP not found")
                                     break
                                 time.sleep(1)
-                        else:            
+                        if not found:
                             local_channel_member_list.append(member)
                             if member["name"] == username:
                                 continue
