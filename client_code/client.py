@@ -305,9 +305,26 @@ def update_member(channel_id:int):
                             log.info(f"Same LAN: {member['name']} ({member['ip']}:{member['port']})")
                             resp = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
                             if resp.status_code != 200:
+                                if resp.status_code == 500:
+                                    log.error("Server error")
+                                    time.sleep(2)
+                                    continue
                                 log.error(f"Error sending LAN IP: {resp.status_code} {resp.json()}")
                                 continue
                             log.info(f"LAN IP sent: {resp.json()}")
+                            for lan_member in resp.json():
+                                if lan_member["name"] == member["name"]:
+                                    log.info(f"New member: {lan_member['name']} ({lan_member['lan_ip']}:{lan_member['port']})")
+                                    member_info = {
+                                        "name": lan_member["name"],
+                                        "ip": lan_member["lan_ip"],
+                                        "port": lan_member["port"]
+                                    }
+                                    local_channel_member_list.append(member_info)
+                                    s.sendto(send_data, (lan_member["lan_ip"], lan_member["port"]))
+                                    new_p2p_thread = threading.Thread(target=start_p2p, args=(member_info,))
+                                    new_p2p_thread.start()
+                                    found = True
                             count = 0
                             while not found:
                                 count += 1
@@ -317,7 +334,7 @@ def update_member(channel_id:int):
                                     pass
                                 else:
                                     log.info("LAN IP found")
-                                    for lan_member in resp2.json()[channel_id]:
+                                    for lan_member in resp2.json():
                                         if lan_member["name"] == member["name"]:
                                             log.info(f"New member: {lan_member['name']} ({lan_member['lan_ip']}:{lan_member['port']})")
                                             member_info = {

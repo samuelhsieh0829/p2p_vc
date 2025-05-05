@@ -211,6 +211,7 @@ def leave_channel_api(channel_id):
 
 @app.route("/api/channel/<channel_id>/lan_ip", methods=["POST"])
 def connect_lan(channel_id):
+    global channels_lan
     name = request.json.get("name")
     ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
     lan_ip = request.json.get("lan_ip")
@@ -218,24 +219,27 @@ def connect_lan(channel_id):
     if not name or not lan_ip or not port:
         return "Missing parameters", 400
     
+    channel_id = int(channel_id)
     # Check if the channel exists
     for channel in channels:
-        if int(channel_id) in channel:
-            global channels_lan
+        if channel_id in channel:
             # Check if the channel already exists in channels_lan
-            if channel_id not in channels_lan:
-                channels_lan.append({channel_id: {"name": name, "ip": ip, "lan_ip": lan_ip, "port": port}})
-                return jsonify({channel_id: {"name": name, "ip": ip, "lan_ip": lan_ip, "port": port}}), 200
-            else:
-                for channel_lan in channels_lan:
-                    if channel_id in channel_lan:
-                        # Check if the member already exists in the channel
-                        for member in channel_lan[channel_id]:
-                            if member.name == name:
-                                return jsonify({channel_id: [member.__dict__ for member in channel_lan[channel_id]]}), 200
-                        channel_lan[channel_id].append(LAN_Member(name, ip, lan_ip, port))
-                        return jsonify({channel_id: [member.__dict__ for member in channel_lan[channel_id]]}), 200
-                          
+            for channel_lan in channels_lan:
+                if channel_id in channel_lan:
+                    # Check if the member already exists in the channel
+                    for member in channel_lan[channel_id]:
+                        if member.name == name:
+                            temp = [member.__dict__ for member in channel_lan[channel_id]]
+                            return jsonify(temp), 200
+                    channel_lan[channel_id].append(LAN_Member(name, ip, lan_ip, port))
+                    temp = [member.__dict__ for member in channel_lan[channel_id]]
+                    return jsonify(temp), 200
+            # If the channel doesn't exist in channels_lan, create it
+            channel_lan = {channel_id: [LAN_Member(name, ip, lan_ip, port)]}
+            channels_lan.append(channel_lan)
+            temp = [member.__dict__ for member in channel_lan[channel_id]]
+            return jsonify(temp), 200
+    # If the channel doesn't exist in channels, return an error
     return jsonify({"status": "Channel not found"}), 404
 
 if __name__ == "__main__":
