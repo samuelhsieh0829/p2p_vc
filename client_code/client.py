@@ -133,7 +133,6 @@ def receive_audio():
             
             # Check if the data is valid
             if data == send_data:
-                s.sendto(send_data, addr)
                 log.info(f"Received NAT punch response from {addr}")
                 s.sendto(confirm_data, addr)
                 continue
