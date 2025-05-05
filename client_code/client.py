@@ -313,8 +313,10 @@ def update_member(channel_id:int):
                                 count += 1
                                 resp2 = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
                                 if resp2.json() == resp.json():
+                                    log.info("Waiting for LAN IP...")
                                     pass
                                 else:
+                                    log.info("LAN IP found")
                                     for lan_member in resp2.json()[channel_id]:
                                         if lan_member["name"] == member["name"]:
                                             log.info(f"New member: {lan_member['name']} ({lan_member['lan_ip']}:{lan_member['port']})")
