@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template, redirect
-from channel import Channel
+from channel import Channel, LAN_Member
 import time
 import random
 from logger import setup_logger, INFO
@@ -18,6 +18,7 @@ udp_socket_port = udp_socket.getsockname()[1]
 log.info(f"Join channel UDP listener started on port {udp_socket_port}")
 
 channels:list[dict[int, Channel]] = []
+channels_lan:list[dict[int, list[LAN_Member]]] = [] # [{channel_id: [{name :str, ip: str, lan_ip :str, port: int}]}]
 
 @app.route("/")
 def index():
@@ -87,12 +88,22 @@ def create_channel_by_get():
         name = request.args.get("name")
         description = request.args.get("description")
         author = request.args.get("author")
+        try:
+            channel_id = int(request.args.get("channel_id"))
+            if channel_id in channels:
+                channel_id = None
+            if channel_id < 10000 or channel_id > 99999:
+                channel_id = None
+        except:
+            channel_id = None
+        
         if not name or not description or not author:
             return "Missing parameters", 400
-        while True:
-            channel_id = random.randint(10000, 99999)
-            if channel_id not in channels:
-                break
+        if not channel_id:
+            while True:
+                channel_id = random.randint(10000, 99999)
+                if channel_id not in channels:
+                    break
         channel = Channel(channel_id, name, description, author)
         channels.append({channel_id: channel})
         return redirect("/channels")
@@ -145,26 +156,6 @@ def join_channel_api(channel_id):
             # Send the UDP port back to the client
             return jsonify({"port": udp_socket_port}), 200
     return jsonify({"status": "Channel not found"}), 404
-    # global channels
-    # name = request.json.get("name")
-    # port = request.json.get("port")
-    # ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
-    # log.info(f"Joining channel {channel_id} with name {name}, ip {ip}, port {port}")
-    # if not name or not ip or not port:
-    #     return "Missing parameters", 400
-    # for channel in channels:
-    #     if int(channel_id) in channel:
-    #         status = channel[int(channel_id)].add_member(name, ip, port)
-    #         if status is None:
-    #             channel_members = channel[int(channel_id)].members.copy()
-    #             temp = []
-    #             for member in channel_members:
-    #                 if member.name != name:
-    #                     temp.append(member.__dict__)
-    #             return jsonify(temp), 200
-    #         else:
-    #             return jsonify({"status": status}), 400
-    # return jsonify({"status": "Channel not found"}), 404
 
 def nat_listener():
     try:
@@ -217,7 +208,36 @@ def leave_channel_api(channel_id):
                 return jsonify({"status": status}), 400
     
     return jsonify({"status": "Channel not found"}), 404
-            
+
+@app.route("/api/channel/<channel_id>/lan_ip", methods=["POST"])
+def connect_lan(channel_id):
+    name = request.json.get("name")
+    ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+    lan_ip = request.json.get("lan_ip")
+    port = request.json.get("port")
+    if not name or not lan_ip or not port:
+        return "Missing parameters", 400
+    
+    # Check if the channel exists
+    for channel in channels:
+        if int(channel_id) in channel:
+            global channels_lan
+            # Check if the channel already exists in channels_lan
+            if channel_id not in channels_lan:
+                channels_lan.append({channel_id: {"name": name, "ip": ip, "lan_ip": lan_ip, "port": port}})
+                return jsonify({channel_id: {"name": name, "ip": ip, "lan_ip": lan_ip, "port": port}}), 200
+            else:
+                for channel_lan in channels_lan:
+                    if channel_id in channel_lan:
+                        # Check if the member already exists in the channel
+                        for member in channel_lan[channel_id]:
+                            if member.name == name:
+                                return jsonify({channel_id: [member.__dict__ for member in channel_lan[channel_id]]}), 200
+                        channel_lan[channel_id].append(LAN_Member(name, ip, lan_ip, port))
+                        return jsonify({channel_id: [member.__dict__ for member in channel_lan[channel_id]]}), 200
+                          
+    return jsonify({"status": "Channel not found"}), 404
+
 if __name__ == "__main__":
     try:
         running = threading.Event()

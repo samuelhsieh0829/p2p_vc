@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import os
 import numpy as np
 from collections import defaultdict, deque
+import ipaddress
 
 # Setup logger
 log = setup_logger(__name__, INFO)
@@ -34,10 +35,25 @@ output_audio = pyaudio.PyAudio()
 audio_out = output_audio.open(format=sample_format, channels=channels, rate=fs, frames_per_buffer=chunk, output=True)
 
 # Socket init
+def get_local_ip():
+    # 建立一個 UDP socket，連到一個非內網的虛擬位址
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # 不需實際送資料，只是觸發系統查詢路由表
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+    except Exception:
+        local_ip = "127.0.0.1"  # fallback
+    finally:
+        s.close()
+    return local_ip
+
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.bind(("0.0.0.0", 0))
 s.settimeout(0.1)  # Set timeout for socket operations
 PORT = s.getsockname()[1]
+LOCAL_IP = get_local_ip()
+log.info(f"Local IP: {LOCAL_IP}")
 
 # Threading
 stop_event = threading.Event()
@@ -45,6 +61,7 @@ stop_event = threading.Event()
 # Main server
 server_address = os.getenv("SERVER_ADDRESS")
 server_http_port = int(os.getenv("SERVER_HTTP_PORT", 80))
+
 # Get time offset
 time_offset = 0
 try:
@@ -58,12 +75,11 @@ except requests.exceptions.RequestException as e:
     log.critical(f"Error connecting to server: {e}")
     sys.exit(1)
 
+self_ip = ""
 local_channel_member_list:list[dict] = [] # Temp list of members in the channel (to check if server side list updated)
 connecting_list:list[dict] = [] # List of P2P connections user data
 send_data = b"hello"
 confirm_data = b"confirm"
-
-import numpy as np
 
 def mix_audio(audio_chunks: list[bytes]) -> bytes:
     if not audio_chunks:
@@ -245,8 +261,22 @@ def fetch_channel_user_list(channel_id:int):
         log.error(f"Error connecting to server: {e}")
         return
     resp = response.json()
+    global self_ip
+    for member in resp:
+        if member["name"] == username:
+            self_ip = member["ip"]
+            log.debug(f"Self IP: {self_ip}")
     log.debug(f"Response: {resp}")
     return resp
+
+def is_same_lan(ip1, ip2):
+    try:
+        net1 = ipaddress.IPv4Address(ip1)
+        net2 = ipaddress.IPv4Address(ip2)
+        # 比對前兩段或前三段的 IP（視情況而定）
+        return str(net1).split('.')[:3] == str(net2).split('.')[:3]
+    except:
+        return False
 
 def update_member(channel_id:int):
     global local_channel_member_list
@@ -262,16 +292,57 @@ def update_member(channel_id:int):
             time.sleep(2)
             continue
         else:
+            # 成員增加
             if len(members) > len(local_channel_member_list):
                 for member in members:
                     if member not in local_channel_member_list:
-                        log.info(f"New member: {member['name']}")
-                        local_channel_member_list.append(member)
                         if member["name"] == username:
                             continue
-                        s.sendto(send_data, (member["ip"], member["port"]))
-                        new_p2p_thread = threading.Thread(target=start_p2p, args=(member,))
-                        new_p2p_thread.start()
+
+                        log.info(f"New member: {member['name']}")
+
+                        # Check if the member is in the same LAN
+                        if is_same_lan(member["ip"], self_ip):
+                            log.info(f"Same LAN: {member['name']} ({member['ip']}:{member['port']})")
+                            resp = requests.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
+                            if resp.status_code != 200:
+                                log.error(f"Error sending LAN IP: {resp.status_code} {resp.json()}")
+                                continue
+                            log.info(f"LAN IP sent: {resp.json()}")
+                            found = False
+                            count = 0
+                            while not found:
+                                count += 1
+                                resp2 = requests.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
+                                if resp2.json() == resp.json():
+                                    continue
+                                else:
+                                    for lan_member in resp2.json()[channel_id]:
+                                        if lan_member["name"] == member["name"]:
+                                            log.info(f"New member: {lan_member['name']} ({lan_member['lan_ip']}:{lan_member['port']})")
+                                            member_info = {
+                                                "name": lan_member["name"],
+                                                "ip": lan_member["lan_ip"],
+                                                "port": lan_member["port"]
+                                            }
+                                            local_channel_member_list.append(member_info)
+                                            s.sendto(send_data, (lan_member["lan_ip"], lan_member["port"]))
+                                            new_p2p_thread = threading.Thread(target=start_p2p, args=(member_info,))
+                                            new_p2p_thread.start()
+                                            found = True
+                                if found:
+                                    break
+                                if count > 10:
+                                    log.error("LAN IP not found")
+                                    break
+                                time.sleep(1)
+                        else:            
+                            local_channel_member_list.append(member)
+                            
+                            s.sendto(send_data, (member["ip"], member["port"]))
+                            new_p2p_thread = threading.Thread(target=start_p2p, args=(member,))
+                            new_p2p_thread.start()
+            # 成員減少
             else:
                 for member in local_channel_member_list.copy():
                     if member not in members:

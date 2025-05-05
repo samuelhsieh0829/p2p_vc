@@ -41,3 +41,13 @@ class Channel:
             log.info(f"Member {name} removed from the channel.")
             return None
 
+class LAN_Member:
+    def __init__(self, name: str, ip: str, lan_ip: str, port: int):
+        self.name = name
+        self.ip = ip
+        self.lan_ip = lan_ip
+        self.port = port
+
+    def get_user(self):
+        log.info(f"Getting user's info: {self.name} ({self.ip}:{self.port})")
+        return f"{self.name} {self.ip} ({self.lan_ip}:{self.port})"
