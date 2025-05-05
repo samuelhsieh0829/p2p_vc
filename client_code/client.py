@@ -9,7 +9,7 @@ from logger import setup_logger, INFO
 from dotenv import load_dotenv
 import os
 import numpy as np
-from collections import defaultdict
+from collections import defaultdict, deque
 
 # Setup logger
 log = setup_logger(__name__, INFO)
@@ -74,9 +74,13 @@ def mix_audio(audio_chunks: list[bytes]) -> bytes:
         # 確保 chunk 不是空的，而且大小是2的倍數
         if not chunk or len(chunk) % 2 != 0:
             continue
-        arr = np.frombuffer(chunk, dtype=np.int16).astype(np.float32)
-        arrays.append(arr)
-
+        try:
+            arr = np.frombuffer(chunk, dtype=np.int16).astype(np.float32)
+            arrays.append(arr)
+        except ValueError:
+            log.exception(f"Error converting chunk to numpy array")
+            continue
+        
     if not arrays:
         return b''
 
@@ -95,10 +99,13 @@ def receive_audio():
 
     buffer_window = 0.02  # seconds (adjust for latency/quality tradeoff)
     peer_buffers = defaultdict(list)
+    play_queue = deque(maxlen=10)
+    buffer_started = False
 
     try:
         log.info("Start receiving data")
         last_playback = time.time()
+
         while not stop_event.is_set():
             now = time.time()
 
@@ -106,7 +113,8 @@ def receive_audio():
                 data, addr = s.recvfrom(32768)
             except socket.timeout:
                 continue
-
+            
+            # Check if the data is valid
             if data == send_data:
                 s.sendto(send_data, addr)
                 log.info(f"Received NAT punch response from {addr}")
@@ -120,6 +128,7 @@ def receive_audio():
             if len(data) < 8:
                 log.warning("Received data is too short")
                 continue
+
             # Get timestamp
             timestamp_byte = data[:8]
             timestamp = struct.unpack(">d", timestamp_byte)[0]
@@ -128,20 +137,27 @@ def receive_audio():
             # Save by peer address
             peer_buffers[addr].append(audio_data)
 
-            # Every 50ms (or so), mix and play
-            if now - last_playback >= buffer_window:
-                mixed_audio = mix_audio([chunk for chunks in peer_buffers.values() for chunk in chunks])
-                if mixed_audio:
-                    audio_out.write(mixed_audio)
-                peer_buffers.clear()
-                last_playback = now
-
-            # audio_out.write(data[8:])
-
-            # Output Ping
+            # 計算,顯示Ping
             t_delta = (time.time() + time_offset) - timestamp
             sys.stdout.write(f"\rPing: {t_delta*1000:.2f} ms")
             sys.stdout.flush()
+
+            # Every 50ms (or so), mix and play
+            if now - last_playback >= buffer_window:
+                chunks = [chunk for chunks in peer_buffers.values() for chunk in chunks]
+                mixed = mix_audio(chunks)
+
+                if mixed:
+                    play_queue.append(mixed)
+
+                peer_buffers.clear()
+                last_playback = now
+            
+            if not buffer_started and len(play_queue) >= 3:
+                buffer_started = True
+
+            if buffer_started and play_queue:
+                audio_out.write(play_queue.popleft())
 
             # Check for latency
             # if t_delta > 0.03:
