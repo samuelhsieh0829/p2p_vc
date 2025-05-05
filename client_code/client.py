@@ -210,6 +210,8 @@ def start_p2p(member:dict):
         s.sendto(send_data, location)
         try:
             data, addr = s.recvfrom(1024)
+            if addr != location:
+                continue
             if data == send_data or data == confirm_data:
                 log.info(f"{addr} NAT punch successful")
                 if member not in connecting_list:
@@ -267,6 +269,7 @@ def update_member(channel_id:int):
                         local_channel_member_list.append(member)
                         if member["name"] == username:
                             continue
+                        s.sendto(send_data, (member["ip"], member["port"]))
                         new_p2p_thread = threading.Thread(target=start_p2p, args=(member,))
                         new_p2p_thread.start()
             else:
