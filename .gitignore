@@ -1,10 +1,26 @@
+# Environment variables
 .env
+# Python cache files
 __pycache__
 test_*.py
 *.pyc
+
+# Build files
+release
 out
-dist
+*.dist
 build
+*.build
 *.spec
 output
 *.rar
+
+# Personal files
+*.log
+config.json
+
+# SSL certificates
+*.pem
+*.crt
+*.key
+ssl.conf

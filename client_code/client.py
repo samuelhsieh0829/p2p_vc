@@ -1,29 +1,55 @@
-import pyaudio
-import socket
-import struct
 import sys
+import os
+from collections import defaultdict, deque
+import numpy as np
+import socket
+import json
 import time
 import threading
-import requests
-from logger import setup_logger, INFO
-from dotenv import load_dotenv
-import os
-import numpy as np
-from collections import defaultdict, deque
+import struct
 import ipaddress
+
+import pyaudio
+import requests
+
+from logger import setup_logger, INFO
+
+path = os.path.dirname(os.path.abspath(__file__))
+os.chdir(path)
 
 # Setup logger
 log = setup_logger(__name__, INFO)
 log.info("Starting client")
 
-# Load environment variables from .env file
-load_dotenv()
-username = os.getenv("SELF_USERNAME") or os.getenv("USERNAME")
-p2p_retry_time = float(os.getenv("P2P_RETRY_TIME", 1))
+# Load config from JSON file
+try:
+    with open("config.json", "r") as f:
+        config = json.load(f)
+        if "username" in config and "p2p_retry_time" in config and "audio_chunk" in config and "server_address" in config:
+            log.info("Config loaded")
+        else:
+            raise FileNotFoundError("Missing required keys in config.json")
+        
+except FileNotFoundError:
+    username = input("Enter your username: ")
+    p2p_retry_time = 0.1
+    with open("config.json", "w") as f:
+        config = {
+            "username": username,
+            "p2p_retry_time": p2p_retry_time,
+            "audio_chunk": 2048,
+            "server_address": "vc.itzowo.net"
+        }
+        json.dump(config, f, indent=4)
+        log.debug("Config file created")
+
+username = config["username"]
+p2p_retry_time = config["p2p_retry_time"]
+
 log.info(f"Username: {username}")
 
 # Audio init
-chunk = int(os.getenv("AUDIO_CHUNK", 1024))
+chunk = config["audio_chunk"]
 sample_format = pyaudio.paInt16
 channels = 1
 fs = 44100
@@ -53,21 +79,20 @@ s.bind(("0.0.0.0", 0))
 s.settimeout(0.1)  # Set timeout for socket operations
 PORT = s.getsockname()[1]
 LOCAL_IP = get_local_ip()
-log.info(f"Local IP: {LOCAL_IP}")
+log.debug(f"Local IP: {LOCAL_IP}")
 
 # Threading
 stop_event = threading.Event()
 
 # Main server
-server_address = os.getenv("SERVER_ADDRESS")
-server_http_port = int(os.getenv("SERVER_HTTP_PORT", 80))
+server_address = config["server_address"]
 session = requests.Session()
 
 # Get time offset
 time_offset = 0
 try:
     t0 = time.time()
-    server_time = session.get(f"http://{server_address}:{server_http_port}/api/time")
+    server_time = session.get(f"http://{server_address}/api/time")
     t1 = time.time()
     rtt = t1 - t0
     t_server = float(server_time.json()["time"])
@@ -120,7 +145,7 @@ def receive_audio():
     peer_buffers = defaultdict(list)
 
     try:
-        log.info("Start receiving data")
+        log.debug("Start receiving data")
         last_playback = time.time()
 
         while not stop_event.is_set():
@@ -133,12 +158,12 @@ def receive_audio():
             
             # Check if the data is valid
             if data == send_data:
-                log.info(f"Received NAT punch response from {addr}")
+                log.debug(f"Received NAT punch response from {addr}")
                 s.sendto(confirm_data, addr)
                 continue
             
             if data == confirm_data:
-                log.info(f"Received NAT punch confirmation from {addr}")
+                log.debug(f"Received NAT punch confirmation from {addr}")
                 continue
 
             if len(data) < 8:
@@ -207,7 +232,7 @@ def audio_playback_loop():
 def send_audio_data():
     global s, audio_in, connecting_list
     try:
-        log.info("Start sending data")
+        log.debug("Start sending data")
         while not stop_event.is_set():
             try:
                 audio = audio_in.read(chunk)
@@ -229,13 +254,13 @@ def send_audio_data():
 
 def start_p2p(member:dict):
     global connecting_list, s
-    log.info(f"Starting P2P connection to {member['name']} ({member['ip']}:{member['port']})")
+    log.debug(f"Starting P2P connection to {member['name']} ({member['ip']}:{member['port']})")
     location = (member["ip"], member["port"])
 
     while not stop_event.is_set():
         if member not in local_channel_member_list:
             log.info(f"Member {member['name']} left the channel")
-            log.info(f"Stopping P2P connection to {member['name']} ({member['ip']}:{member['port']})")
+            log.debug(f"Stopping P2P connection to {member['name']} ({member['ip']}:{member['port']})")
             break
 
         s.sendto(send_data, location)
@@ -244,7 +269,8 @@ def start_p2p(member:dict):
             if addr != location:
                 continue
             if data == send_data or data == confirm_data:
-                log.info(f"{addr} NAT punch successful")
+                log.debug(f"{addr} NAT punch successful")
+                log.info(f"Connected to {member['name']}")
                 if member not in connecting_list:
                     connecting_list.append(member)
                 for i in range(10):
@@ -253,13 +279,13 @@ def start_p2p(member:dict):
         except socket.timeout:
             pass
         except OSError:
-            log.warning("Received wrong packet while P2P")
+            log.debug("Received wrong packet while P2P")
         finally:
             time.sleep(p2p_retry_time)
 
 def fetch_channel(channel_id:int):
     try:
-        response = session.get(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}")
+        response = session.get(f"http://{server_address}/api/channel/{channel_id}")
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         log.error(f"Error connecting to server: {e}")
@@ -270,7 +296,7 @@ def fetch_channel(channel_id:int):
 
 def fetch_channel_user_list(channel_id:int):
     try:
-        response = session.get(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/members")
+        response = session.get(f"http://{server_address}/api/channel/{channel_id}/members")
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         log.error(f"Error connecting to server: {e}")
@@ -318,7 +344,7 @@ def update_member(channel_id:int):
                         found = False
                         if is_same_lan(member["ip"], self_ip) and (member["name"] != username):
                             log.info(f"Same LAN: {member['name']} ({member['ip']}:{member['port']})")
-                            resp = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
+                            resp = session.post(f"http://{server_address}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
                             if resp.status_code != 200:
                                 if resp.status_code == 500:
                                     log.error("Server error")
@@ -347,7 +373,7 @@ def update_member(channel_id:int):
                             count = 0
                             while not found:
                                 count += 1
-                                resp2 = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
+                                resp2 = session.post(f"http://{server_address}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
                                 if resp2.json() == resp.json():
                                     log.info("Waiting for LAN IP...")
                                     pass
@@ -380,7 +406,7 @@ def update_member(channel_id:int):
                             s.sendto(send_data, (member["ip"], member["port"]))
                             new_p2p_thread = threading.Thread(target=start_p2p, args=(member,))
                             new_p2p_thread.start()
-                log.info(f"Updated member list: {local_channel_member_list}")
+                log.debug(f"Updated member list: {local_channel_member_list}")
             # 成員減少
             elif len(members) < len(local_channel_member_list):
                 for member in local_channel_member_list.copy():
@@ -393,18 +419,18 @@ def update_member(channel_id:int):
                             if conn["ip"] == member["ip"] and conn["port"] == member["port"]:
                                 connecting_list.remove(conn)
                                 log.info(f"Removed connection to {member['name']}")
-                log.info(f"Updated member list: {local_channel_member_list}")
+                log.debug(f"Updated member list: {local_channel_member_list}")
             else:
                 pass # 之後再說 幹
 
 def join_channel(channel_id:int):
-    response = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/join")
+    response = session.post(f"http://{server_address}/api/channel/{channel_id}/join")
     if response.status_code != 200:
         log.error(f"Error joining channel: {response.status_code} {response.json()}")
         return None
     resp = response.json()
     port = int(resp["port"])
-    log.info(f"Port: {port}")
+    log.debug(f"Port: {port}")
     s.settimeout(2)  # Set timeout for socket operations
     try:
         while True:
@@ -412,7 +438,7 @@ def join_channel(channel_id:int):
             username_length = len(username_bytes)
             packet = struct.pack(">II", channel_id, username_length) + username_bytes
             s.sendto(packet, (server_address, port))
-            log.info(f"Join channel packet sent to {server_address}:{port}")
+            log.debug(f"Join channel packet sent to {server_address}:{port}")
             try:
                 data, addr = s.recvfrom(1024)
                 if data == send_data:
@@ -444,7 +470,7 @@ def join_channel(channel_id:int):
     # return resp
 
 def leave_channel(channel_id:int):
-    response = session.post(f"http://{server_address}:{server_http_port}/api/channel/{channel_id}/leave", json={"name": username})
+    response = session.post(f"http://{server_address}/api/channel/{channel_id}/leave", json={"name": username})
     if response.status_code != 200:
         log.error(f"Error leaving channel: {response.status_code} {response.json()}")
 
@@ -487,6 +513,7 @@ def main(channel_id:int=None):
 
     try:
         while True:
+            print()
             cmd = input("Enter command (join/leave/exit): ").strip().lower()
             if cmd == "exit":
                 log.info("Exiting...")

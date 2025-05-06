@@ -68,19 +68,28 @@ def list_channels():
 # Create channel
 @app.route("/api/channels/create", methods=["POST"])
 def create_channel():
-    if request.method == "POST":
-        name = request.json.get["name"]
-        description = request.json.get["description"]
-        author = request.json.get["author"]
-        if not name or not description or not author:
-            return "Missing parameters", 400
+    name = request.json.get("name")
+    description = request.json.get("description")
+    author = request.json.get("author")
+    if not name or not description or not author:
+        log.error("Missing parameters")
+        return "Missing parameters", 400
+    try:
+        channel_id = int(request.json.get("channel_id"))
+        if channel_id in channels:
+            channel_id = None
+        if channel_id < 10000 or channel_id > 99999:
+            channel_id = None
+    except:
+        channel_id = None
+    if not channel_id:
         while True:
             channel_id = random.randint(10000, 99999)
             if channel_id not in channels:
                 break
-        channel = Channel(channel_id, name, description, author)
-        channels.append({channel_id: channel})
-        return "ok", 200
+    channel = Channel(channel_id, name, description, author)
+    channels.append({channel_id: channel})
+    return "ok", 200
 
 @app.route("/channels/create", methods=["GET"])
 def create_channel_by_get():
@@ -258,7 +267,7 @@ if __name__ == "__main__":
         nat_thread.start()
         
         # Start the Flask server
-        app.run(host="0.0.0.0", port=80, debug=True)
+        app.run(host="0.0.0.0", port=443, ssl_context=('server.crt', 'server.key'))
     finally:
         running.set()
         nat_thread.join()

@@ -72,7 +72,14 @@
     </style>
 </head>
 <body>
-    <div id="channels"></div>
+    <div id="create">
+        <button onclick="createChannel()">Create Channel</button>
+    </div>
+
+    <div id="channels">
+        <h2>Available Channels</h2>
+        <!-- Channel buttons will be dynamically added here -->
+    </div>
 
     <!-- Modal -->
     <div id="channelModal" class="modal">
@@ -132,6 +139,50 @@
                 modal.style.display = 'none';
             }
         };
+
+        function createChannel() {
+            const createDiv = document.getElementById('create');
+            createDiv.innerHTML = `
+                <h2>Create a new channel</h2>
+                <form id="createChannelForm">
+                    <label for="name">Channel Name:</label><br>
+                    <input type="text" id="name" name="name" required><br><br>
+                    <label for="description">Description:</label><br>
+                    <input type="text" id="description" name="description"><br><br>
+                    <label for="author">Author:</label><br>
+                    <input type="text" id="author" name="author" required><br><br>
+                    <label for="channelId">Channel ID (Optional):</label><br>
+                    <input type="text" id="channelId" name="channelId"><br><br>
+                    <button type="submit">Create Channel</button>
+                </form>`;
+            const form = document.getElementById('createChannelForm');
+            form.onsubmit = function (event) {
+                event.preventDefault(); // Prevent the default form submission
+                const formData = new FormData(form);
+                const data = {
+                    name: formData.get('name'),
+                    description: formData.get('description'),
+                    author: formData.get('author'),
+                    channel_id: formData.get('channelId')
+                };
+                fetch('/api/channels/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Channel created successfully!');
+                        window.location.reload(); // Reload the page to see the new channel
+                    } else {
+                        alert('Error creating channel: ' + response.statusText);
+                    }
+                })
+                .catch(error => console.error('Error creating channel:', error));
+            };
+        }
     </script>
 </body>
 </html>
