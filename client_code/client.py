@@ -79,6 +79,8 @@ except requests.exceptions.RequestException as e:
 self_ip = ""
 local_channel_member_list:list[dict] = [] # Temp list of members in the channel (to check if server side list updated)
 connecting_list:list[dict] = [] # List of P2P connections user data
+play_queue = deque(maxlen=10)
+buffer_started = False
 send_data = b"hello"
 confirm_data = b"confirm"
 
@@ -112,12 +114,10 @@ def mix_audio(audio_chunks: list[bytes]) -> bytes:
 
 
 def receive_audio():
-    global s
+    global s, play_queue, audio_out, buffer_started
 
     buffer_window = 0.02  # seconds (adjust for latency/quality tradeoff)
     peer_buffers = defaultdict(list)
-    play_queue = deque(maxlen=10)
-    buffer_started = False
 
     try:
         log.info("Start receiving data")
@@ -172,8 +172,8 @@ def receive_audio():
             if not buffer_started and len(play_queue) >= 3:
                 buffer_started = True
 
-            if buffer_started and play_queue:
-                audio_out.write(play_queue.popleft())
+            # if buffer_started and play_queue:
+                # audio_out.write(play_queue.popleft())
 
             # Check for latency
             # if t_delta > 0.03:
@@ -188,6 +188,21 @@ def receive_audio():
     finally:
         output_audio.terminate()
         log.info("Audio receive stopped")
+
+def audio_playback_loop():
+    global play_queue, audio_out, buffer_started
+    try:
+        while not stop_event.is_set():
+            if play_queue and buffer_started:
+                audio_out.write(play_queue.popleft())
+            else:
+                time.sleep(0.005)
+    except KeyboardInterrupt:
+        log.info("\nCtrl + C detected")
+    finally:
+        audio_out.stop_stream()
+        audio_out.close()
+        log.info("Audio playback stopped")
 
 def send_audio_data():
     global s, audio_in, connecting_list
@@ -463,6 +478,9 @@ def main(channel_id:int=None):
 
     receiver_thread = threading.Thread(target=receive_audio)
     receiver_thread.start()
+
+    play_back_thread = threading.Thread(target=audio_playback_loop)
+    play_back_thread.start()
 
     update_thread = threading.Thread(target=update_member, args=(channel_id,))
     update_thread.start()
