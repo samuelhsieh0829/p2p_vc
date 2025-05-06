@@ -4,12 +4,12 @@
 ## 客戶端說明
 客戶端程式有兩種可以使用
 ### 1.使用發行版本
-- 到這邊下載client.zip(連結待補充)並將其解壓縮
+- 到這邊下載[client.zip](https://github.com/samuelhsieh0829/p2p_vc/releases/download/0.1/client.zip)並將其解壓縮
 - 進入`client`目錄，打開`client.exe`即可
 ### 2.運行原始碼
 - 先到[Python官網](https://www.python.org/downloads/)下載Python 3.11.7版本的安裝檔(其他版本理論上也可以，但沒測試過)
 - 開啟安裝檔，**勾選`Add Python 3.x to PATH`**，然後一直按下一步，直到安裝好
-- 下載Source Code(連結待補充)並解壓縮(或是使用git clone https://github.com/samuelhsieh0829/p2p_vc.git)
+- 下載[Source Code](https://github.com/samuelhsieh0829/p2p_vc/archive/refs/tags/0.1.zip)並解壓縮(或是使用git clone https://github.com/samuelhsieh0829/p2p_vc.git)
 - 進入`p2p-vc`目錄，開啟cmd，執行`pip install -r requirements.txt`以安裝依賴模組
 - 進入`client_code`目錄，執行`client.py`
 
@@ -20,7 +20,7 @@
 - 亦可透過按下鍵盤`Ctrl+C`結束程式
 
 ## 伺服器端架設
-- 先安裝Python、下載原始碼並安裝依賴模組(步驟與上述運行原始碼相同)
+- 先安裝Python、下載[原始碼](https://github.com/samuelhsieh0829/p2p_vc/archive/refs/tags/0.1.zip)並安裝依賴模組(步驟與上述運行原始碼相同)
 - 進入`server_code`目錄，執行`server.py`
 
 ## API、ENDPOINT
