@@ -1,15 +1,20 @@
-from flask import Flask, request, jsonify, render_template, redirect
-from channel import Channel, LAN_Member
 import time
 import random
-from logger import setup_logger, INFO
-import threading
 import socket
 import struct
+import threading
+
+from flask import Flask, request, jsonify, render_template, redirect
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+from channel import Channel, LAN_Member
+from logger import setup_logger, INFO
+
 
 log = setup_logger(__name__, INFO)
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 udp_socket.bind(("0.0.0.0", 0))
@@ -139,24 +144,6 @@ def delete_channel_by_get(channel_id):
             return redirect("/channels")
     return "Channel not found", 404
 
-# Join channel
-# @app.route("/channel/<channel_id>/join", methods=["GET"])
-# def join_channel(channel_id):
-#     name = request.args.get("name")
-#     ip = request.args.get("ip")
-#     port = request.args.get("port")
-#     log.info(f"Joining channel {channel_id} with name {name}, ip {ip}, port {port}")
-#     if not name or not ip or not port:
-#         return "Missing parameters", 400
-#     for channel in channels:
-#         if int(channel_id) in channel:
-#             status = channel[int(channel_id)].add_member(name, ip, port)
-#             if status is None:
-#                 return redirect("/channels")
-#             else:
-#                 return status, 400
-#     return "Channel not found", 404
-
 # Channel join leave API
 @app.route("/api/channel/<channel_id>/join", methods=["POST"])
 def join_channel_api(channel_id):
@@ -267,7 +254,7 @@ if __name__ == "__main__":
         nat_thread.start()
         
         # Start the Flask server
-        app.run(host="0.0.0.0", port=80)
+        app.run(host="0.0.0.0", port=10001)
     finally:
         running.set()
         nat_thread.join()

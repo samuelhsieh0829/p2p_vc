@@ -12,21 +12,17 @@ import ipaddress
 import pyaudio
 import requests
 
-from logger import setup_logger, INFO
+from logger import setup_logger, INFO, DEBUG
 
 path = os.path.dirname(os.path.abspath(__file__))
 os.chdir(path)
-
-# Setup logger
-log = setup_logger(__name__, INFO)
-log.info("Starting client")
 
 # Load config from JSON file
 try:
     with open("config.json", "r") as f:
         config = json.load(f)
-        if "username" in config and "p2p_retry_time" in config and "audio_chunk" in config and "server_address" in config:
-            log.info("Config loaded")
+        if "username" in config and "p2p_retry_time" in config and "audio_chunk" in config and "server_address" in config and "debug" in config:
+            pass
         else:
             raise FileNotFoundError("Missing required keys in config.json")
         
@@ -38,10 +34,19 @@ except FileNotFoundError:
             "username": username,
             "p2p_retry_time": p2p_retry_time,
             "audio_chunk": 2048,
-            "server_address": "vc.itzowo.net"
+            "server_address": "vc.itzowo.net",
+            "debug": False
         }
         json.dump(config, f, indent=4)
-        log.debug("Config file created")
+
+# Setup logger
+if config["debug"]:
+    log_level = DEBUG
+else:
+    log_level = INFO
+log = setup_logger(__name__, log_level)
+log.info("Starting client")
+
 
 username = config["username"]
 p2p_retry_time = config["p2p_retry_time"]
@@ -197,15 +202,6 @@ def receive_audio():
             if not buffer_started and len(play_queue) >= 3:
                 buffer_started = True
 
-            # if buffer_started and play_queue:
-                # audio_out.write(play_queue.popleft())
-
-            # Check for latency
-            # if t_delta > 0.03:
-            #     log.warning(f"\nWarning: High latency detected: {t_delta*1000:.2f} ms, rebinding socket")
-            #     s.close()
-            #     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            #     s.bind(audio_in_target_location)
     except KeyboardInterrupt:
         log.info("\nCtrl + C detected")
     # except OSError:
@@ -302,11 +298,6 @@ def fetch_channel_user_list(channel_id:int):
         log.error(f"Error connecting to server: {e}")
         return
     resp = response.json()
-    global self_ip
-    for member in resp:
-        if member["name"] == username:
-            self_ip = member["ip"]
-            log.debug(f"Self IP: {self_ip}")
     log.debug(f"Response: {resp}")
     return resp
 
@@ -420,6 +411,7 @@ def update_member(channel_id:int):
                                 connecting_list.remove(conn)
                                 log.info(f"Removed connection to {member['name']}")
                 log.debug(f"Updated member list: {local_channel_member_list}")
+            # 成員不變
             else:
                 pass # 之後再說 幹
 
@@ -457,17 +449,6 @@ def join_channel(channel_id:int):
 
     except:
         log.exception("Error sending join channel packet")
-    # try:
-    #     #######################
-    #     #之後試試看改用socket請求
-    #     #######################
-    #     response = session.post(f"http://{server_address}/api/channel/{channel_id}/join", json={"name": username, "port": PORT})
-    #     response.raise_for_status()
-    # except requests.exceptions.RequestException as e:
-    #     log.error(f"Error connecting to server: {e}")
-    #     return None
-    # resp = response.json()
-    # return resp
 
 def leave_channel(channel_id:int):
     response = session.post(f"http://{server_address}/api/channel/{channel_id}/leave", json={"name": username})
@@ -479,7 +460,7 @@ def leave_channel(channel_id:int):
     return resp
 
 def main(channel_id:int=None):
-    global local_channel_member_list
+    global local_channel_member_list, self_ip
     if channel_id is None:
         channel_id = input("Enter channel ID: ")
         try:
@@ -495,10 +476,17 @@ def main(channel_id:int=None):
         return
 
     channel_data = fetch_channel(channel_id)
+    
     if channel_data is None:
         log.error("Channel not found")
         return
     
+    for member in fetch_channel_user_list(channel_id):
+        if member["name"] == username:
+            self_ip = member["ip"]
+            log.debug(f"Self IP: {self_ip}")
+            break
+
     sender_thread = threading.Thread(target=send_audio_data)
     sender_thread.start()
 
@@ -541,7 +529,7 @@ def main(channel_id:int=None):
         s.close()
 
         log.info("Main stopped")
-        exit()
+        return
 
 if __name__ == "__main__":
     main()
