@@ -4,7 +4,7 @@
 ## 客戶端說明
 客戶端程式有兩種可以使用
 ### 1.使用發行版本
-- 到這邊下載[client.zip](https://github.com/samuelhsieh0829/p2p_vc/releases/download/0.1/client.zip)並將其解壓縮
+- 到這邊下載[client.zip](https://github.com/samuelhsieh0829/p2p_vc/releases/download/0.2/client_0.2.zip)並將其解壓縮
 - 進入`client`目錄，打開`client.exe`即可
 ### 2.運行原始碼
 - 先到[Python官網](https://www.python.org/downloads/)下載Python 3.11.7版本的安裝檔(其他版本理論上也可以，但沒測試過)
