@@ -53,6 +53,8 @@ p2p_retry_time = config["p2p_retry_time"]
 
 log.info(f"Username: {username}")
 
+# 之後把init內的東西把它做成模組(audio, socket)
+
 # Audio init
 chunk = config["audio_chunk"]
 sample_format = pyaudio.paInt16
@@ -501,13 +503,25 @@ def main(channel_id:int=None):
 
     try:
         while True:
+            run = True
             print()
-            cmd = input("Enter command (join/leave/exit): ").strip().lower()
+            cmd = input("Enter command (exit): ").strip().lower()
             if cmd == "exit":
                 log.info("Exiting...")
+                run = False
                 break
+            # elif cmd == "leave":
+            #     log.info("Leaveing channel")
+            #     break
+            else:
+                log.info("Invalid command")
+                continue
     except KeyboardInterrupt:
         log.info("\nCtrl + C detected")
+        run = False
+    except Exception:
+        log.exception("Error")
+        run = False
     finally:
         # leaving channel
         leave_channel(channel_id)
@@ -529,7 +543,17 @@ def main(channel_id:int=None):
         s.close()
 
         log.info("Main stopped")
-        return
+        return run
 
 if __name__ == "__main__":
-    main()
+    run = True
+    while run:
+        try:
+            run = main()
+        except KeyboardInterrupt:
+            log.info("\nCtrl + C detected")
+            run = False
+        except Exception:
+            log.exception("Error in main loop")
+            run = False
+    input("Press Enter to exit...")
