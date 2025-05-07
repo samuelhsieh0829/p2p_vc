@@ -17,6 +17,7 @@ output
 
 # Personal files
 *.log
+*.log.*
 config.json
 
 # SSL certificates

@@ -267,7 +267,7 @@ if __name__ == "__main__":
         nat_thread.start()
         
         # Start the Flask server
-        app.run(host="0.0.0.0", port=443, ssl_context=('server.crt', 'server.key'))
+        app.run(host="0.0.0.0", port=80)
     finally:
         running.set()
         nat_thread.join()
