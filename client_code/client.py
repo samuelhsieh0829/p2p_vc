@@ -21,7 +21,7 @@ os.chdir(path)
 try:
     with open("config.json", "r") as f:
         config = json.load(f)
-        if "username" in config and "p2p_retry_time" in config and "audio_chunk" in config and "server_address" in config and "debug" in config:
+        if "username" in config and "p2p_retry_time" in config and "audio_chunk" in config and "server_address" in config and "server_port" in config and "auto_lan" in config and "debug" in config:
             pass
         else:
             raise FileNotFoundError("Missing required keys in config.json")
@@ -35,6 +35,8 @@ except FileNotFoundError:
             "p2p_retry_time": p2p_retry_time,
             "audio_chunk": 2048,
             "server_address": "vc.itzowo.net",
+            "server_port": 80,
+            "auto_lan": True,
             "debug": False
         }
         json.dump(config, f, indent=4)
@@ -109,6 +111,7 @@ except requests.exceptions.RequestException as e:
     sys.exit(1)
 
 self_ip = ""
+auto_lan = config["auto_lan"]
 local_channel_member_list:list[dict] = [] # Temp list of members in the channel (to check if server side list updated)
 connecting_list:list[dict] = [] # List of P2P connections user data
 play_queue = deque(maxlen=10)
@@ -335,7 +338,7 @@ def update_member(channel_id:int):
 
                         # Check if the member is in the same LAN
                         found = False
-                        if is_same_lan(member["ip"], self_ip) and (member["name"] != username):
+                        if is_same_lan(member["ip"], self_ip) and (member["name"] != username) and auto_lan:
                             log.info(f"Same LAN: {member['name']} ({member['ip']}:{member['port']})")
                             resp = session.post(f"http://{server_address}/api/channel/{channel_id}/lan_ip", json={"name": username, "ip": self_ip, "lan_ip": LOCAL_IP, "port": PORT})
                             if resp.status_code != 200:
