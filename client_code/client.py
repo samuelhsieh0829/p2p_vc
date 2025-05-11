@@ -241,7 +241,7 @@ def send_audio_data():
                 if member["name"] == username:
                     continue
                 audio_out_target_location = (member["ip"], member["port"])
-                timestamp = time.time() + time_offset
+                timestamp = time.time()
                 timestamp_bytes = struct.pack(">d", timestamp)
                 s.sendto(timestamp_bytes+audio, audio_out_target_location)
     except KeyboardInterrupt:
