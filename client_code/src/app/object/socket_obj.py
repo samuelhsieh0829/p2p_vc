@@ -2,7 +2,7 @@ import socket
 import time
 import threading
 
-from utils.logger import setup_logger, INFO
+from app.logger import setup_logger, INFO
 
 class Data:
     def __init__(self, data=b'', ip=None, port=None, addr=None):

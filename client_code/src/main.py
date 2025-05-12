@@ -1,8 +1,8 @@
 import os
 import json
 
-from utils.logger import setup_logger, INFO, DEBUG
-from utils import Client
+from app.logger import setup_logger, INFO, DEBUG
+from app import Client
 
 
 path = os.path.dirname(os.path.abspath(__file__))

@@ -4,10 +4,10 @@ import numpy as np
 import threading
 from collections import deque
 
-from utils.logger import setup_logger, INFO, DEBUG
-from utils.object.audio_obj import AudioIn
-from utils.object.socket_obj import UDPSocket
-from utils.const import *
+from app.logger import setup_logger, INFO, DEBUG
+from app.object.audio_obj import AudioIn
+from app.object.socket_obj import UDPSocket
+from app.const import *
 
 log = setup_logger(__name__)
 

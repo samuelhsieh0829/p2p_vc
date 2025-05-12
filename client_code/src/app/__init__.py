@@ -1,12 +1,12 @@
 import threading
 
-from utils.object.socket_obj import UDPSocket
-from utils.receive_audio import ReceiveAudio
-from utils.send_audio import SendAudio
-from utils.p2p import P2PManager
-from utils.fetch import Fetch
-from utils.const import *
-from utils.logger import setup_logger, INFO, DEBUG
+from app.object.socket_obj import UDPSocket
+from app.receive_audio import ReceiveAudio
+from app.send_audio import SendAudio
+from app.p2p import P2PManager
+from app.fetch import Fetch
+from app.const import *
+from app.logger import setup_logger, INFO, DEBUG
 
 class Client:
     def __init__(self, config:dict):

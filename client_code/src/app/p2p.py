@@ -1,10 +1,10 @@
 import time
 import threading
 
-from utils.fetch import Fetch
-from utils.const import *
-from utils.logger import setup_logger, INFO, DEBUG
-from utils.object.socket_obj import UDPSocket
+from app.fetch import Fetch
+from app.const import *
+from app.logger import setup_logger, INFO, DEBUG
+from app.object.socket_obj import UDPSocket
 
 class P2PManager:
     def __init__(self, config, socket:UDPSocket, stop_event:threading.Event, connecting_list:list):

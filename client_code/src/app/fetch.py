@@ -2,9 +2,9 @@ import requests
 import ipaddress
 import struct
 
-from utils.object.socket_obj import UDPSocket
-from utils.logger import setup_logger, INFO, DEBUG
-from utils.const import *
+from app.object.socket_obj import UDPSocket
+from app.logger import setup_logger, INFO, DEBUG
+from app.const import *
 
 class Fetch:
     def __init__(self, config, socket:UDPSocket=None):

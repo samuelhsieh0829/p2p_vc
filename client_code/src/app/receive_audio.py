@@ -5,11 +5,11 @@ import sys
 import numpy as np
 import threading
 
-from utils.logger import setup_logger, INFO, DEBUG
-from utils.object.audio_obj import AudioOut
-from utils.object.socket_obj import UDPSocket
-from utils.fetch import Fetch
-from utils.const import *
+from app.logger import setup_logger, INFO, DEBUG
+from app.object.audio_obj import AudioOut
+from app.object.socket_obj import UDPSocket
+from app.fetch import Fetch
+from app.const import *
 
 class ReceiveAudio:
     def __init__(self, config, socket:UDPSocket, stop_event:threading.Event, connecting_list):
