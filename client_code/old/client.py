@@ -34,8 +34,8 @@ except FileNotFoundError:
             "username": username,
             "p2p_retry_time": p2p_retry_time,
             "audio_chunk": 2048,
-            "server_address": "vc.itzowo.net",
-            "server_port": 80,
+            "server_address": "localhost",
+            "server_port": 10001,
             "auto_lan": True,
             "debug": False
         }
@@ -104,8 +104,12 @@ try:
     server_time = session.get(f"http://{server_address}/api/time")
     t1 = time.time()
     rtt = t1 - t0
-    t_server = float(server_time.json()["time"])
-    time_offset = t_server + (rtt / 2) - t1
+    try:
+        t_server = float(server_time.json()["time"])
+        time_offset = t_server + (rtt / 2) - t1
+    except TypeError:
+        log.critical("Cannot fetch valid server time")
+        sys.exit(1)
 except requests.exceptions.RequestException as e:
     log.critical(f"Error connecting to server: {e}")
     sys.exit(1)

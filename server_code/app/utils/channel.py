@@ -1,4 +1,4 @@
-from logger import setup_logger, INFO
+from app.utils.logger import setup_logger, INFO
 import datetime
 
 log = setup_logger(__name__, INFO)
