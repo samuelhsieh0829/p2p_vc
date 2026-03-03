@@ -6,9 +6,6 @@ WARNING = logging.WARNING
 ERROR = logging.ERROR
 CRITICAL = logging.CRITICAL
 
-import logging
-
-import logging
 from logging.handlers import TimedRotatingFileHandler
 
 def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:

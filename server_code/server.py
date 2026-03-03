@@ -16,10 +16,11 @@ log = setup_logger(__name__, INFO)
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
+udp_socket_port = 9001
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-udp_socket.bind(("0.0.0.0", 0))
+udp_socket.bind(("0.0.0.0", udp_socket_port))
 udp_socket.settimeout(2)  # Set a timeout for the socket to avoid blocking
-udp_socket_port = udp_socket.getsockname()[1]
+# udp_socket_port = udp_socket.getsockname()[1]
 log.info(f"Join channel UDP listener started on port {udp_socket_port}")
 
 channels:list[dict[int, Channel]] = []
