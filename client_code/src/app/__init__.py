@@ -22,8 +22,6 @@ class Client:
         self.socket = UDPSocket(self.running)
         self.server = Fetch(config, self.socket)
         self.local_channel_member_list = []
-        self.connecting_list = []
-
         
         log_level = INFO if not config["debug"] else DEBUG
         self.log = setup_logger(__name__, log_level)
@@ -60,15 +58,15 @@ class Client:
                     break
             
             threads_started = True
-            self.send_audio = SendAudio(self.config, self.socket, self.running, self.connecting_list)
+            self.send_audio = SendAudio(self.config, self.socket, self.running)
             send_audio_thread = threading.Thread(target=self.send_audio.start, daemon=True)
             send_audio_thread.start()
 
-            self.receive_audio = ReceiveAudio(self.config, self.socket, self.running, self.connecting_list)
+            self.receive_audio = ReceiveAudio(self.config, self.socket, self.running)
             receive_audio_thread = threading.Thread(target=self.receive_audio.start, daemon=True)
             receive_audio_thread.start()
             
-            self.p2p_manager = P2PManager(self.config, self.socket, self.running, self.connecting_list)
+            self.p2p_manager = P2PManager(self.config, self.socket, self.running)
             self.p2p_manager.local_channel_member_list = self.local_channel_member_list
             p2p_manager_thread = threading.Thread(target=self.p2p_manager.update_member, args=(channel_id,), daemon=True)
             p2p_manager_thread.start()

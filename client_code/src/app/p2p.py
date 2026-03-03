@@ -2,12 +2,14 @@ import time
 import threading
 
 from app.fetch import Fetch
-from app.const import *
 from app.logger import setup_logger, INFO, DEBUG
 from app.object.socket_obj import UDPSocket
+from app.const import send_data, confirm_data
+
+from app.global_var import datas
 
 class P2PManager:
-    def __init__(self, config, socket:UDPSocket, stop_event:threading.Event, connecting_list:list):
+    def __init__(self, config, socket:UDPSocket, stop_event:threading.Event):
         self.config = config
         self.username = config["username"]
         self.server_address = config["server_address"]
@@ -18,8 +20,6 @@ class P2PManager:
         self.stop_event = stop_event
         self.server = Fetch(config, self.socket)
         self.run = True
-        self.local_channel_member_list = []
-        self.connecting_list = connecting_list
 
         log_level = INFO if not config["debug"] else DEBUG
         self.log = setup_logger(__name__, log_level)
@@ -39,14 +39,14 @@ class P2PManager:
                 continue
 
             members = data.copy()
-            if members == self.local_channel_member_list:
+            if members == datas.local_channel_member_list:
                 time.sleep(2)
                 continue
             else:
                 # 成員增加
-                if len(members) > len(self.local_channel_member_list):
+                if len(members) > len(datas.local_channel_member_list):
                     for member in members:
-                        if member not in self.local_channel_member_list:
+                        if member not in datas.local_channel_member_list:
 
                             self.log.info(f"New member: {member['name']}")
 
@@ -72,7 +72,7 @@ class P2PManager:
                                             "ip": lan_member["lan_ip"],
                                             "port": lan_member["port"]
                                         }
-                                        self.local_channel_member_list.append(member_info)
+                                        datas.local_channel_member_list.append(member_info)
                                         self.socket.send(send_data, (lan_member["lan_ip"], lan_member["port"]))
                                         new_p2p_thread = threading.Thread(target=self.start_p2p, args=(member_info,))
                                         new_p2p_thread.start()
@@ -96,7 +96,7 @@ class P2PManager:
                                                     "ip": lan_member["lan_ip"],
                                                     "port": lan_member["port"]
                                                 }
-                                                self.local_channel_member_list.append(member_info)
+                                                datas.local_channel_member_list.append(member_info)
                                                 self.socket.send(send_data, (lan_member["lan_ip"], lan_member["port"]))
                                                 new_p2p_thread = threading.Thread(target=self.start_p2p, args=(member_info,))
                                                 new_p2p_thread.start()
@@ -108,27 +108,27 @@ class P2PManager:
                                         break
                                     time.sleep(1)
                             if not found:
-                                self.local_channel_member_list.append(member)
+                                datas.local_channel_member_list.append(member)
                                 if member["name"] == self.username:
                                     continue
 
                                 self.socket.send(send_data, (member["ip"], member["port"]))
                                 new_p2p_thread = threading.Thread(target=self.start_p2p, args=(member,))
                                 new_p2p_thread.start()
-                    self.log.debug(f"Updated member list: {self.local_channel_member_list}")
+                    self.log.debug(f"Updated member list: {datas.local_channel_member_list}")
                 # 成員減少
-                elif len(members) < len(self.local_channel_member_list):
-                    for member in self.local_channel_member_list.copy():
+                elif len(members) < len(datas.local_channel_member_list):
+                    for member in datas.local_channel_member_list.copy():
                         if member not in members:
                             if member["name"] == self.username:
                                 self.stop_event.set()
                                 continue
-                            self.local_channel_member_list.remove(member)
-                            for conn in self.connecting_list:
+                            datas.local_channel_member_list.remove(member)
+                            for conn in datas.connecting_list:
                                 if conn["ip"] == member["ip"] and conn["port"] == member["port"]:
-                                    self.connecting_list.remove(conn)
+                                    datas.connecting_list.remove(conn)
                                     self.log.info(f"Removed connection to {member['name']}")
-                    self.log.debug(f"Updated member list: {self.local_channel_member_list}")
+                    self.log.debug(f"Updated member list: {datas.local_channel_member_list}")
                 # 成員不變
                 else:
                     pass # 之後再說 幹
@@ -138,11 +138,31 @@ class P2PManager:
         self.log.debug(f"Starting P2P connection to {member['name']} ({member['ip']}:{member['port']})")
         location = (member["ip"], member["port"])
 
+        # Don't connect to ourselves
+        if member["name"] == self.username:
+            self.log.debug(f"Skipping P2P connection to self")
+            return
+
         while not self.stop_event.is_set():
-            if member not in self.local_channel_member_list:
+            if member not in datas.local_channel_member_list:
                 self.log.info(f"Member {member['name']} left the channel")
                 self.log.debug(f"Stopping P2P connection to {member['name']} ({member['ip']}:{member['port']})")
                 break
+
+            # Check if NAT punch was detected by receive_audio thread
+            if location in datas.get_send_data_list:
+                self.log.debug(f"{location} NAT punch successful (detected by receive_audio)")
+                self.log.info(f"Connected to {member['name']}")
+                # Check if already in connecting_list by ip and port
+                already_connected = any(c["ip"] == member["ip"] and c["port"] == member["port"] for c in datas.connecting_list)
+                if not already_connected:
+                    datas.connecting_list.append(member)
+                    self.log.debug(f"Current connecting list: {datas.connecting_list}")
+                # Remove from get_send_data_list
+                datas.get_send_data_list.remove(location)
+                for i in range(10):
+                    self.socket.send(confirm_data, location)
+                return
 
             self.socket.send(send_data, location)
             try:
@@ -152,8 +172,11 @@ class P2PManager:
                 if data.data == send_data or data.data == confirm_data:
                     self.log.debug(f"{data.addr} NAT punch successful")
                     self.log.info(f"Connected to {member['name']}")
-                    if member not in self.connecting_list:
-                        self.connecting_list.append(member)
+                    # Check if already in connecting_list by ip and port
+                    already_connected = any(c["ip"] == member["ip"] and c["port"] == member["port"] for c in datas.connecting_list)
+                    if not already_connected:
+                        datas.connecting_list.append(member)
+                        self.log.debug(f"Current connecting list: {datas.connecting_list}")
                     for i in range(10):
                         self.socket.send(confirm_data, location)
                     return

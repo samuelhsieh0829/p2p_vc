@@ -1,3 +1,5 @@
+# Deprecated: This is the old client code.
+
 import sys
 import os
 from collections import defaultdict, deque
@@ -34,8 +36,8 @@ except FileNotFoundError:
             "username": username,
             "p2p_retry_time": p2p_retry_time,
             "audio_chunk": 2048,
-            "server_address": "localhost",
-            "server_port": 10001,
+            "server_address": "vc.itzowo.net",
+            "server_port": 80,
             "auto_lan": True,
             "debug": False
         }

@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
         # Start the Flask server
         app = init_app()
-        app.run(host="0.0.0.0", port=80)
+        app.run(host="0.0.0.0", port=10001)
     finally:
         running.set()
         server.nat_thread.join()

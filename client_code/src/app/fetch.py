@@ -14,8 +14,6 @@ class Fetch:
         self.debug = config["debug"]
         self.socket = socket
         self.session = requests.Session()
-        self.local_channel_member_list = []
-        self.connecting_list = []
 
         log_level = INFO if not config["debug"] else DEBUG
         self.log = setup_logger(__name__, log_level)

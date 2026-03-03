@@ -9,17 +9,18 @@ from app.object.audio_obj import AudioIn
 from app.object.socket_obj import UDPSocket
 from app.const import *
 
+from app.global_var import datas
+
 log = setup_logger(__name__)
 
 class SendAudio:
-    def __init__(self, config, socket:UDPSocket, stop_event:threading.Event, connecting_list):
+    def __init__(self, config, socket:UDPSocket, stop_event:threading.Event):
         self.config = config
         self.username = config["username"]
         self.s = socket
         self.chunk = config["audio_chunk"]
         self.stop_event = stop_event
         self.audio_queue = deque(maxlen=50)
-        self.connecting_list = connecting_list
 
     def audio_get_loop(self):
         try:
@@ -50,7 +51,7 @@ class SendAudio:
                 timestamp = time.time()
                 timestamp_bytes = struct.pack(">d", timestamp)
                 data = timestamp_bytes + audio
-                for member in self.connecting_list:
+                for member in datas.connecting_list:
                     if member["name"] == self.username:
                         continue
                     audio_out_target_location = (member["ip"], member["port"])

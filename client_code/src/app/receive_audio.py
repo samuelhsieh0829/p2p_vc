@@ -11,15 +11,15 @@ from app.object.socket_obj import UDPSocket
 from app.fetch import Fetch
 from app.const import *
 
+from app.global_var import datas
 class ReceiveAudio:
-    def __init__(self, config, socket:UDPSocket, stop_event:threading.Event, connecting_list):
+    def __init__(self, config, socket:UDPSocket, stop_event:threading.Event):
         self.config = config
         self.s = socket
         self.chunk = config["audio_chunk"]
         self.play_queue = deque(maxlen=10)
         self.peer_pings = {}
         self.buffer_started = False
-        self.connecting_list = connecting_list
 
         self.stop_event = stop_event
 
@@ -80,10 +80,14 @@ class ReceiveAudio:
                 if data.data == send_data:
                     self.log.debug(f"Received NAT punch response from {data.addr}")
                     self.s.send(confirm_data, data.addr)
+                    if data.addr not in datas.get_send_data_list:
+                        datas.get_send_data_list.append(data.addr)
                     continue
                 
                 if data.data == confirm_data:
                     self.log.debug(f"Received NAT punch confirmation from {data.addr}")
+                    if data.addr not in datas.get_send_data_list and data.addr not in datas.connecting_list:
+                        datas.get_send_data_list.append(data.addr)
                     continue
                 
                 if data.data == b'':
@@ -93,14 +97,16 @@ class ReceiveAudio:
                     self.log.warning("Received data is too short")
                     continue
                 
-                if data.addr not in self.connecting_list:
+                # Check if the sender is in connecting_list by ip and port
+                is_connected = any(c["ip"] == data.ip and c["port"] == data.port for c in datas.connecting_list)
+                if not is_connected:
                     self.log.debug(f"Received data from unknown peer: {data.addr}")
                     continue
 
                 # Get timestamp
                 timestamp_byte = data.data[:8]
                 timestamp = struct.unpack(">d", timestamp_byte)[0]
-                audio_data = data[8:]
+                audio_data = data.data[8:]
 
                 # Save by peer address
                 peer_buffers[data.addr].append(audio_data)
