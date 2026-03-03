@@ -25,6 +25,7 @@ class Client:
         self.connecting_list = []
 
         
+        
         log_level = INFO if not config["debug"] else DEBUG
         self.log = setup_logger(__name__, log_level)
         self.log.debug(f"Client initialized with config: {config}")
